@@ -95,7 +95,12 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
         .overwrite(config.conflict_mode == "overwrite")
         .strip_metadata(config.strip_metadata)
         .mute(config.is_muted)
-        .ignore_unknown();
+        .ignore_unknown()
+        .arg("-map", "0:v:0");
+
+    if !config.is_muted {
+        builder = builder.arg("-map", "0:a:0?");
+    }
 
     if let Some(ref resize) = config.resize_config {
         let filter = build_resize_filter(resize, &config.output_format, true);
@@ -104,7 +109,16 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
 
     let max_audio_bitrate = 192u32;
     let raw_audio_bitrate = 64 + ((config.quality_percent as u32 * 128) / 100);
-    let audio_bitrate = format!("{}k", raw_audio_bitrate.min(max_audio_bitrate));
+    let mut final_audio_bitrate = raw_audio_bitrate.min(max_audio_bitrate);
+
+    if let Some(source_audio_bps) = config.source_audio_bitrate {
+        let source_audio_kbps = (source_audio_bps / 1000) as u32;
+        if source_audio_kbps > 0 {
+            let cap = ((source_audio_kbps as f64) * 1.1) as u32;
+            final_audio_bitrate = final_audio_bitrate.min(cap);
+        }
+    }
+    let audio_bitrate = format!("{}k", final_audio_bitrate);
 
     let x264_preset = if config.quality_percent >= 80 {
         "slow"
@@ -123,12 +137,29 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
 
             let vp9_crf = config.calculate_crf();
 
+            builder = builder.arg("-crf", &vp9_crf.to_string());
+
+            if let Some(source_bps) = config.source_video_bitrate {
+                let source_kbps = source_bps / 1000;
+                if source_kbps > 0 {
+                    let cap_kbps = ((source_kbps as f64) * 1.2) as u64;
+                    let bufsize_kbps = cap_kbps * 2;
+                    builder = builder
+                        .arg("-b:v", &format!("{}k", cap_kbps))
+                        .arg("-maxrate", &format!("{}k", cap_kbps))
+                        .arg("-bufsize", &format!("{}k", bufsize_kbps));
+                } else {
+                    builder = builder.arg("-b:v", "0");
+                }
+            } else {
+                builder = builder.arg("-b:v", "0");
+            }
+
             builder = builder
-                .arg("-crf", &vp9_crf.to_string())
-                .arg("-b:v", "0")
                 .arg("-deadline", "good")
                 .arg("-cpu-used", "2")
-                .arg("-row-mt", "1");
+                .arg("-row-mt", "1")
+                .arg("-pix_fmt", "yuv420p");
         }
         OutputFormat::Video(VideoFormat::Mp4) => {
             builder = builder.arg("-c:v", "libx264");
@@ -149,7 +180,9 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
             }
             builder = builder.arg("-crf", &config.calculate_crf().to_string());
 
-            builder = builder.arg("-preset", x264_preset);
+            builder = builder
+                .arg("-preset", x264_preset)
+                .arg("-pix_fmt", "yuv420p");
         }
         OutputFormat::Video(VideoFormat::Mov) => {
             builder = builder.arg("-c:v", "libx264");
@@ -177,7 +210,16 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
             if !config.is_muted {
                 builder = builder.arg("-c:a", "wmav2").arg("-b:a", &audio_bitrate);
             }
-            let video_bitrate = 300 + ((config.quality_percent as u32 * 2700) / 100);
+            let mut video_bitrate = 300 + ((config.quality_percent as u32 * 2700) / 100);
+
+            if let Some(source_bps) = config.source_video_bitrate {
+                let source_kbps = (source_bps / 1000) as u32;
+                if source_kbps > 0 {
+                    let cap = ((source_kbps as f64) * 1.2) as u32;
+                    video_bitrate = video_bitrate.min(cap);
+                }
+            }
+
             builder = builder.arg("-b:v", &format!("{}k", video_bitrate));
         }
         OutputFormat::Video(VideoFormat::M4v) => {
@@ -206,6 +248,28 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
                 .arg("-f", "flv");
         }
         _ => {}
+    }
+
+    if let Some(source_bps) = config.source_video_bitrate {
+        let source_kbps = source_bps / 1000;
+        if source_kbps > 0 {
+            let is_crf_codec = matches!(
+                &config.output_format,
+                OutputFormat::Video(VideoFormat::Mp4)
+                    | OutputFormat::Video(VideoFormat::Mkv)
+                    | OutputFormat::Video(VideoFormat::Mov)
+                    | OutputFormat::Video(VideoFormat::M4v)
+                    | OutputFormat::Video(VideoFormat::Flv)
+            );
+
+            if is_crf_codec {
+                let cap_kbps = ((source_kbps as f64) * 1.2) as u64;
+                let bufsize_kbps = cap_kbps * 2;
+                builder = builder
+                    .arg("-maxrate", &format!("{}k", cap_kbps))
+                    .arg("-bufsize", &format!("{}k", bufsize_kbps));
+            }
+        }
     }
 
     builder.output(&config.output_path).build()
@@ -316,7 +380,6 @@ pub fn build_image_args(config: &ConversionConfig) -> Vec<OsString> {
         }
         _ => {}
     }
-
     builder.output(&config.output_path).build()
 }
 

@@ -201,6 +201,16 @@ pub async fn convert_file(
         }
     }
 
+    let (source_video_bitrate, source_audio_bitrate) =
+        if matches!(&output_format, OutputFormat::Video(_)) {
+            match crate::modules::ffprobe::probe_media(&input_path).await {
+                Some(probe) => (probe.video_bitrate, probe.audio_bitrate),
+                None => (None, None),
+            }
+        } else {
+            (None, None)
+        };
+
     let config = ConversionConfig {
         input_path: input_path.clone(),
         output_path: final_output_path.clone(),
@@ -210,6 +220,8 @@ pub async fn convert_file(
         is_muted: request.is_muted,
         strip_metadata: request.strip_metadata,
         conflict_mode: request.conflict_mode.clone(),
+        source_video_bitrate,
+        source_audio_bitrate,
     };
 
     let args = match &output_format {
@@ -321,7 +333,11 @@ pub async fn convert_file(
             } else if log_content.contains("No space left on device") {
                 "Conversion failed: Disk full.".to_string()
             } else {
-                format!("FFmpeg exited with code: {:?}", status.code())
+                format!(
+                    "FFmpeg exited with code: {:?}\n{}",
+                    status.code(),
+                    log_content
+                )
             };
 
             let _ = app.emit(

@@ -185,42 +185,44 @@ pub struct ConversionConfig {
     pub is_muted: bool,
     pub strip_metadata: bool,
     pub conflict_mode: String,
+    pub source_video_bitrate: Option<u64>,
+    pub source_audio_bitrate: Option<u64>,
 }
 
 impl ConversionConfig {
     pub fn calculate_crf(&self) -> u8 {
         match &self.output_format {
             OutputFormat::Video(VideoFormat::Webm) => {
-                let crf = 63.0 - ((self.quality_percent as f32 / 100.0) * 32.0);
-                crf.clamp(31.0, 63.0) as u8
+                let crf = 63.0 - ((self.quality_percent as f32 / 100.0) * 39.0);
+                crf.clamp(24.0, 63.0) as u8
             }
             OutputFormat::Video(VideoFormat::Mp4) | OutputFormat::Video(VideoFormat::Mkv) => {
-                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 28.0);
-                crf.clamp(23.0, 51.0) as u8
+                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 33.0);
+                crf.clamp(18.0, 51.0) as u8
             }
             OutputFormat::Video(VideoFormat::Mov) => {
-                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 28.0);
-                crf.clamp(23.0, 51.0) as u8
+                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 33.0);
+                crf.clamp(18.0, 51.0) as u8
             }
             OutputFormat::Video(VideoFormat::Avi) => {
-                let qscale = 31.0 - ((self.quality_percent as f32 / 100.0) * 28.0);
-                qscale.clamp(3.0, 31.0) as u8
+                let qscale = 31.0 - ((self.quality_percent as f32 / 100.0) * 30.0);
+                qscale.clamp(1.0, 31.0) as u8
             }
             OutputFormat::Video(VideoFormat::Wmv) => {
-                let qscale = 31.0 - ((self.quality_percent as f32 / 100.0) * 28.0);
-                qscale.clamp(3.0, 31.0) as u8
+                let qscale = 31.0 - ((self.quality_percent as f32 / 100.0) * 30.0);
+                qscale.clamp(1.0, 31.0) as u8
             }
             OutputFormat::Video(VideoFormat::M4v) => {
-                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 28.0);
-                crf.clamp(23.0, 51.0) as u8
+                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 33.0);
+                crf.clamp(18.0, 51.0) as u8
             }
             OutputFormat::Video(VideoFormat::Flv) => {
-                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 28.0);
-                crf.clamp(23.0, 51.0) as u8
+                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 33.0);
+                crf.clamp(18.0, 51.0) as u8
             }
             _ => {
-                let crf = 51.0 - (self.quality_percent as f32 * 0.28);
-                crf.clamp(23.0, 51.0) as u8
+                let crf = 51.0 - (self.quality_percent as f32 * 0.33);
+                crf.clamp(18.0, 51.0) as u8
             }
         }
     }
