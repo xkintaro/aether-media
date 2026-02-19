@@ -121,8 +121,8 @@ Follow the steps below to run or develop the project in your local environment.
     ```
 
 3.  **FFmpeg Configuration**
-    - Download a GPL-licensed `ffmpeg.exe` build for Windows (e.g. from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)).
-    - Save the file as `src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe`.
+    - Download a GPL-licensed `ffmpeg.exe` and `ffprobe.exe` build for Windows (e.g. from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)).
+    - Save the file as `src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe` and `ffprobe-x86_64-pc-windows-msvc.exe`.
 
 4.  **Start the Application**
     ```bash
