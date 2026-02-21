@@ -144,9 +144,9 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
                 let source_kbps = source_bps / 1000;
                 if source_kbps > 0 {
                     let quality_factor = config.quality_percent as f64 / 100.0;
-                    let multiplier = 0.5 + (quality_factor * 0.55);
+                    let multiplier = 0.3 + (quality_factor * 0.7);
                     let cap_kbps = ((source_kbps as f64) * multiplier) as u64;
-                    let bufsize_kbps = cap_kbps * 2;
+                    let bufsize_kbps = cap_kbps;
                     builder = builder
                         .arg("-b:v", &format!("{}k", cap_kbps))
                         .arg("-maxrate", &format!("{}k", cap_kbps))
@@ -212,11 +212,10 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
             );
 
             if is_crf_codec {
-                // Kaliteye orantısal çarpan: %100 → 1.05, %0 → 0.5
                 let quality_factor = config.quality_percent as f64 / 100.0;
-                let multiplier = 0.5 + (quality_factor * 0.55);
+                let multiplier = 0.3 + (quality_factor * 0.7);
                 let cap_kbps = ((source_kbps as f64) * multiplier) as u64;
-                let bufsize_kbps = cap_kbps * 2;
+                let bufsize_kbps = cap_kbps;
                 builder = builder
                     .arg("-maxrate", &format!("{}k", cap_kbps))
                     .arg("-bufsize", &format!("{}k", bufsize_kbps));
@@ -253,7 +252,6 @@ pub fn build_audio_extract_args(config: &ConversionConfig) -> Vec<OsString> {
                 builder = builder.arg("-q:a", &q.min(9).to_string());
             }
             AudioFormat::Aac | AudioFormat::M4a => {
-                // Dinamik tavan: kaynak varsa kaynağı kullan, yoksa güvenli 320kbps
                 let max_bitrate = if let Some(source_audio_bps) = config.source_audio_bitrate {
                     let source_kbps = (source_audio_bps / 1000) as u32;
                     if source_kbps > 0 {
