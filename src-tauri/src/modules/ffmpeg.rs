@@ -107,17 +107,18 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
         builder = builder.filter_complex(filter);
     }
 
-    let max_audio_bitrate = 192u32;
-    let raw_audio_bitrate = 64 + ((config.quality_percent as u32 * 128) / 100);
-    let mut final_audio_bitrate = raw_audio_bitrate.min(max_audio_bitrate);
-
-    if let Some(source_audio_bps) = config.source_audio_bitrate {
+    let max_audio_bitrate = if let Some(source_audio_bps) = config.source_audio_bitrate {
         let source_audio_kbps = (source_audio_bps / 1000) as u32;
         if source_audio_kbps > 0 {
-            let cap = ((source_audio_kbps as f64) * 1.1) as u32;
-            final_audio_bitrate = final_audio_bitrate.min(cap);
+            source_audio_kbps
+        } else {
+            320u32
         }
-    }
+    } else {
+        320u32
+    };
+    let raw_audio_bitrate = 64 + ((config.quality_percent as u32 * 256) / 100);
+    let final_audio_bitrate = raw_audio_bitrate.min(max_audio_bitrate);
     let audio_bitrate = format!("{}k", final_audio_bitrate);
 
     let x264_preset = if config.quality_percent >= 80 {
@@ -142,7 +143,9 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
             if let Some(source_bps) = config.source_video_bitrate {
                 let source_kbps = source_bps / 1000;
                 if source_kbps > 0 {
-                    let cap_kbps = ((source_kbps as f64) * 1.2) as u64;
+                    let quality_factor = config.quality_percent as f64 / 100.0;
+                    let multiplier = 0.5 + (quality_factor * 0.55);
+                    let cap_kbps = ((source_kbps as f64) * multiplier) as u64;
                     let bufsize_kbps = cap_kbps * 2;
                     builder = builder
                         .arg("-b:v", &format!("{}k", cap_kbps))
@@ -195,58 +198,6 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
                 .arg("-movflags", "+faststart")
                 .arg("-pix_fmt", "yuv420p");
         }
-        OutputFormat::Video(VideoFormat::Avi) => {
-            builder = builder.arg("-c:v", "mpeg4");
-            if !config.is_muted {
-                let q = 2 + ((100 - config.quality_percent) as f32 / 100.0 * 7.0) as u8;
-                builder = builder
-                    .arg("-c:a", "libmp3lame")
-                    .arg("-q:a", &q.min(9).to_string());
-            }
-            builder = builder.arg("-q:v", &config.calculate_crf().to_string());
-        }
-        OutputFormat::Video(VideoFormat::Wmv) => {
-            builder = builder.arg("-c:v", "wmv2");
-            if !config.is_muted {
-                builder = builder.arg("-c:a", "wmav2").arg("-b:a", &audio_bitrate);
-            }
-            let mut video_bitrate = 300 + ((config.quality_percent as u32 * 2700) / 100);
-
-            if let Some(source_bps) = config.source_video_bitrate {
-                let source_kbps = (source_bps / 1000) as u32;
-                if source_kbps > 0 {
-                    let cap = ((source_kbps as f64) * 1.2) as u32;
-                    video_bitrate = video_bitrate.min(cap);
-                }
-            }
-
-            builder = builder.arg("-b:v", &format!("{}k", video_bitrate));
-        }
-        OutputFormat::Video(VideoFormat::M4v) => {
-            builder = builder.arg("-c:v", "libx264");
-            if !config.is_muted {
-                builder = builder.arg("-c:a", "aac").arg("-b:a", &audio_bitrate);
-            }
-            builder = builder
-                .arg("-crf", &config.calculate_crf().to_string())
-                .arg("-preset", x264_preset)
-                .arg("-movflags", "+faststart")
-                .arg("-pix_fmt", "yuv420p");
-        }
-        OutputFormat::Video(VideoFormat::Flv) => {
-            builder = builder.arg("-c:v", "libx264");
-            if !config.is_muted {
-                builder = builder
-                    .arg("-c:a", "libmp3lame")
-                    .arg("-b:a", &audio_bitrate);
-            }
-            builder = builder
-                .arg("-crf", &config.calculate_crf().to_string())
-                .arg("-profile:v", "baseline")
-                .arg("-level", "3.1")
-                .arg("-pix_fmt", "yuv420p")
-                .arg("-f", "flv");
-        }
         _ => {}
     }
 
@@ -258,12 +209,13 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
                 OutputFormat::Video(VideoFormat::Mp4)
                     | OutputFormat::Video(VideoFormat::Mkv)
                     | OutputFormat::Video(VideoFormat::Mov)
-                    | OutputFormat::Video(VideoFormat::M4v)
-                    | OutputFormat::Video(VideoFormat::Flv)
             );
 
             if is_crf_codec {
-                let cap_kbps = ((source_kbps as f64) * 1.2) as u64;
+                // Kaliteye orantısal çarpan: %100 → 1.05, %0 → 0.5
+                let quality_factor = config.quality_percent as f64 / 100.0;
+                let multiplier = 0.5 + (quality_factor * 0.55);
+                let cap_kbps = ((source_kbps as f64) * multiplier) as u64;
                 let bufsize_kbps = cap_kbps * 2;
                 builder = builder
                     .arg("-maxrate", &format!("{}k", cap_kbps))
@@ -288,17 +240,7 @@ pub fn build_audio_extract_args(config: &ConversionConfig) -> Vec<OsString> {
             "-c:a",
             match audio_format {
                 AudioFormat::Mp3 => "libmp3lame",
-                AudioFormat::Wav => {
-                    if config.quality_percent >= 90 {
-                        "pcm_s24le"
-                    } else if config.quality_percent >= 50 {
-                        "pcm_s16le"
-                    } else {
-                        "pcm_u8"
-                    }
-                }
                 AudioFormat::Aac => "aac",
-                AudioFormat::Flac => "flac",
                 AudioFormat::M4a => "aac",
                 AudioFormat::Ogg => "libvorbis",
             },
@@ -311,26 +253,26 @@ pub fn build_audio_extract_args(config: &ConversionConfig) -> Vec<OsString> {
                 builder = builder.arg("-q:a", &q.min(9).to_string());
             }
             AudioFormat::Aac | AudioFormat::M4a => {
-                let calculated_bitrate = 64 + ((config.quality_percent as u32 * 192) / 100);
-                let final_bitrate = calculated_bitrate.min(256);
+                // Dinamik tavan: kaynak varsa kaynağı kullan, yoksa güvenli 320kbps
+                let max_bitrate = if let Some(source_audio_bps) = config.source_audio_bitrate {
+                    let source_kbps = (source_audio_bps / 1000) as u32;
+                    if source_kbps > 0 {
+                        source_kbps
+                    } else {
+                        320u32
+                    }
+                } else {
+                    320u32
+                };
+                let calculated_bitrate = 64 + ((config.quality_percent as u32 * 256) / 100);
+                let final_bitrate = calculated_bitrate.min(max_bitrate);
 
                 builder = builder.arg("-b:a", &format!("{}k", final_bitrate));
-            }
-            AudioFormat::Flac => {
-                let compression = if config.quality_percent >= 90 {
-                    12
-                } else if config.quality_percent >= 50 {
-                    8
-                } else {
-                    5
-                };
-                builder = builder.arg("-compression_level", &compression.to_string());
             }
             AudioFormat::Ogg => {
                 let q = (config.quality_percent as f32 / 100.0 * 8.0).round() as u8;
                 builder = builder.arg("-q:a", &q.max(1).min(8).to_string());
             }
-            _ => {}
         }
     }
 
@@ -364,19 +306,6 @@ pub fn build_image_args(config: &ConversionConfig) -> Vec<OsString> {
         }
         OutputFormat::Image(ImageFormat::Png) => {
             builder = builder.arg("-compression_level", "9");
-        }
-        OutputFormat::Image(ImageFormat::Bmp) => {
-            builder = builder.arg("-pix_fmt", "bgr24");
-        }
-        OutputFormat::Image(ImageFormat::Tiff) => {
-            let algo = if config.quality_percent >= 95 {
-                "lzw"
-            } else if config.quality_percent >= 50 {
-                "deflate"
-            } else {
-                "packbits"
-            };
-            builder = builder.arg("-compression_algo", algo);
         }
         _ => {}
     }

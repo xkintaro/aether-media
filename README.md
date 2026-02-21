@@ -36,9 +36,9 @@ It is built on the performance of the **Rust** language and the lightweight natu
 
 ### 🔄 Wide Format Support
 Aether Media supports all popular media formats:
-- **Video**: `MP4`, `MKV`, `MOV`, `WEBM`, `AVI`, `WMV`, `M4V`, `FLV`
-- **Audio**: `MP3`, `WAV`, `AAC`, `FLAC`, `M4A`, `OGG`
-- **Image**: `JPG`, `PNG`, `WEBP`, `BMP`, `TIFF`
+- **Video**: `MP4`, `MKV`, `MOV`, `WEBM`, `AVI`, `WMV`, `FLV`, `M4V`
+- **Audio**: `MP3`, `AAC`, `M4A`, `OGG`, `WAV`, `FLAC`, `WMA`, `OPUS`
+- **Image**: `JPG`, `PNG`, `WEBP`, `BMP`, `TIFF`, `TIF`
 
 ### ⚡ Smart Conversion
 - **Quality Control**: Precise quality adjustment between 0% and 100%. Offers the best size/quality balance with automatic **CRF (Constant Rate Factor)** calculation for video conversions.

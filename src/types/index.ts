@@ -1,14 +1,6 @@
-export type VideoFormat =
-  | "mp4"
-  | "mkv"
-  | "mov"
-  | "webm"
-  | "avi"
-  | "wmv"
-  | "m4v"
-  | "flv";
-export type ImageFormat = "jpg" | "png" | "webp" | "bmp" | "tiff";
-export type AudioFormat = "mp3" | "wav" | "aac" | "flac" | "m4a" | "ogg";
+export type VideoFormat = "mp4" | "mkv" | "mov" | "webm";
+export type ImageFormat = "jpg" | "png" | "webp";
+export type AudioFormat = "mp3" | "aac" | "m4a" | "ogg";
 export type OutputFormat = VideoFormat | ImageFormat | AudioFormat;
 
 export type MediaType = "video" | "image" | "audio";
@@ -112,8 +104,8 @@ export const VIDEO_EXTENSIONS = [
   "webm",
   "avi",
   "wmv",
-  "m4v",
   "flv",
+  "m4v",
 ] as const;
 export const IMAGE_EXTENSIONS = [
   "jpg",
@@ -122,14 +114,17 @@ export const IMAGE_EXTENSIONS = [
   "webp",
   "bmp",
   "tiff",
+  "tif",
 ] as const;
 export const AUDIO_EXTENSIONS = [
   "mp3",
-  "wav",
   "aac",
-  "flac",
   "m4a",
   "ogg",
+  "wav",
+  "flac",
+  "wma",
+  "opus",
 ] as const;
 
 export const ALL_EXTENSIONS = [
@@ -139,9 +134,9 @@ export const ALL_EXTENSIONS = [
 ] as const;
 
 export const DISPLAY_FORMATS = {
-  video: ["MP4", "MKV", "MOV", "WebM", "AVI", "WMV", "M4V", "FLV"],
-  image: ["JPG", "PNG", "WebP", "BMP", "TIFF"],
-  audio: ["MP3", "WAV", "AAC", "FLAC", "M4A", "OGG"],
+  video: ["MP4", "MKV", "MOV", "WebM"],
+  image: ["JPG", "PNG", "WebP"],
+  audio: ["MP3", "AAC", "M4A", "OGG"],
 } as const;
 
 export const VIDEO_OUTPUT_FORMATS: VideoFormat[] = [
@@ -149,26 +144,9 @@ export const VIDEO_OUTPUT_FORMATS: VideoFormat[] = [
   "mkv",
   "mov",
   "webm",
-  "avi",
-  "wmv",
-  "m4v",
-  "flv",
 ];
-export const IMAGE_OUTPUT_FORMATS: ImageFormat[] = [
-  "jpg",
-  "png",
-  "webp",
-  "bmp",
-  "tiff",
-];
-export const AUDIO_OUTPUT_FORMATS: AudioFormat[] = [
-  "mp3",
-  "wav",
-  "aac",
-  "flac",
-  "m4a",
-  "ogg",
-];
+export const IMAGE_OUTPUT_FORMATS: ImageFormat[] = ["jpg", "png", "webp"];
+export const AUDIO_OUTPUT_FORMATS: AudioFormat[] = ["mp3", "aac", "m4a", "ogg"];
 
 export function getMediaType(extension: string): MediaType | null {
   const ext = extension.toLowerCase().replace(".", "");

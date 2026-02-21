@@ -8,10 +8,6 @@ pub enum VideoFormat {
     Mkv,
     Mov,
     Webm,
-    Avi,
-    Wmv,
-    M4v,
-    Flv,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -20,17 +16,13 @@ pub enum ImageFormat {
     Jpg,
     Png,
     Webp,
-    Bmp,
-    Tiff,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum AudioFormat {
     Mp3,
-    Wav,
     Aac,
-    Flac,
     M4a,
     Ogg,
 }
@@ -51,23 +43,15 @@ impl OutputFormat {
                 VideoFormat::Mkv => "mkv",
                 VideoFormat::Mov => "mov",
                 VideoFormat::Webm => "webm",
-                VideoFormat::Avi => "avi",
-                VideoFormat::Wmv => "wmv",
-                VideoFormat::M4v => "m4v",
-                VideoFormat::Flv => "flv",
             },
             OutputFormat::Image(i) => match i {
                 ImageFormat::Jpg => "jpg",
                 ImageFormat::Png => "png",
                 ImageFormat::Webp => "webp",
-                ImageFormat::Bmp => "bmp",
-                ImageFormat::Tiff => "tiff",
             },
             OutputFormat::Audio(a) => match a {
                 AudioFormat::Mp3 => "mp3",
-                AudioFormat::Wav => "wav",
                 AudioFormat::Aac => "aac",
-                AudioFormat::Flac => "flac",
                 AudioFormat::M4a => "m4a",
                 AudioFormat::Ogg => "ogg",
             },
@@ -94,11 +78,13 @@ pub enum MediaType {
 impl MediaType {
     pub fn from_extension(extension: &str) -> Option<Self> {
         match extension.to_lowercase().as_str() {
-            "mp4" | "mkv" | "mov" | "webm" | "avi" | "wmv" | "m4v" | "flv" => {
+            "mp4" | "mkv" | "mov" | "webm" | "avi" | "wmv" | "flv" | "m4v" => {
                 Some(MediaType::Video)
             }
-            "jpg" | "jpeg" | "png" | "webp" | "bmp" | "tiff" => Some(MediaType::Image),
-            "mp3" | "wav" | "aac" | "flac" | "m4a" | "ogg" => Some(MediaType::Audio),
+            "jpg" | "jpeg" | "png" | "webp" | "bmp" | "tiff" | "tif" => Some(MediaType::Image),
+            "mp3" | "aac" | "m4a" | "ogg" | "wav" | "flac" | "wma" | "opus" => {
+                Some(MediaType::Audio)
+            }
             _ => None,
         }
     }
@@ -196,27 +182,9 @@ impl ConversionConfig {
                 let crf = 63.0 - ((self.quality_percent as f32 / 100.0) * 39.0);
                 crf.clamp(24.0, 63.0) as u8
             }
-            OutputFormat::Video(VideoFormat::Mp4) | OutputFormat::Video(VideoFormat::Mkv) => {
-                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 33.0);
-                crf.clamp(18.0, 51.0) as u8
-            }
-            OutputFormat::Video(VideoFormat::Mov) => {
-                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 33.0);
-                crf.clamp(18.0, 51.0) as u8
-            }
-            OutputFormat::Video(VideoFormat::Avi) => {
-                let qscale = 31.0 - ((self.quality_percent as f32 / 100.0) * 30.0);
-                qscale.clamp(1.0, 31.0) as u8
-            }
-            OutputFormat::Video(VideoFormat::Wmv) => {
-                let qscale = 31.0 - ((self.quality_percent as f32 / 100.0) * 30.0);
-                qscale.clamp(1.0, 31.0) as u8
-            }
-            OutputFormat::Video(VideoFormat::M4v) => {
-                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 33.0);
-                crf.clamp(18.0, 51.0) as u8
-            }
-            OutputFormat::Video(VideoFormat::Flv) => {
+            OutputFormat::Video(VideoFormat::Mp4)
+            | OutputFormat::Video(VideoFormat::Mkv)
+            | OutputFormat::Video(VideoFormat::Mov) => {
                 let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 33.0);
                 crf.clamp(18.0, 51.0) as u8
             }
@@ -297,19 +265,11 @@ pub fn parse_output_format(s: &str) -> Option<OutputFormat> {
         "mkv" => Some(OutputFormat::Video(VideoFormat::Mkv)),
         "mov" => Some(OutputFormat::Video(VideoFormat::Mov)),
         "webm" => Some(OutputFormat::Video(VideoFormat::Webm)),
-        "avi" => Some(OutputFormat::Video(VideoFormat::Avi)),
-        "wmv" => Some(OutputFormat::Video(VideoFormat::Wmv)),
-        "m4v" => Some(OutputFormat::Video(VideoFormat::M4v)),
-        "flv" => Some(OutputFormat::Video(VideoFormat::Flv)),
         "jpg" | "jpeg" => Some(OutputFormat::Image(ImageFormat::Jpg)),
         "png" => Some(OutputFormat::Image(ImageFormat::Png)),
         "webp" => Some(OutputFormat::Image(ImageFormat::Webp)),
-        "bmp" => Some(OutputFormat::Image(ImageFormat::Bmp)),
-        "tiff" => Some(OutputFormat::Image(ImageFormat::Tiff)),
         "mp3" => Some(OutputFormat::Audio(AudioFormat::Mp3)),
-        "wav" => Some(OutputFormat::Audio(AudioFormat::Wav)),
         "aac" => Some(OutputFormat::Audio(AudioFormat::Aac)),
-        "flac" => Some(OutputFormat::Audio(AudioFormat::Flac)),
         "m4a" => Some(OutputFormat::Audio(AudioFormat::M4a)),
         "ogg" => Some(OutputFormat::Audio(AudioFormat::Ogg)),
         _ => None,
