@@ -61,6 +61,7 @@ export interface ConversionSettings {
   outputDirectory?: string;
   conflictMode: ConflictMode;
   processingEnabled: boolean;
+  maxBitrate: number | null;
 }
 
 export type ThumbnailStatus = "pending" | "loading" | "loaded" | "error";
@@ -81,7 +82,7 @@ export interface QueueItem {
   createdAt: number;
 }
 
-export interface GlobalSettings extends ConversionSettings {}
+export interface GlobalSettings extends ConversionSettings { }
 
 export interface ProgressEvent {
   id: string;
@@ -206,4 +207,5 @@ export const DEFAULT_SETTINGS: ConversionSettings = {
   },
   conflictMode: "skip",
   processingEnabled: true,
+  maxBitrate: null,
 };

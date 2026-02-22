@@ -111,11 +111,11 @@ export function useConversionQueue(): UseConversionQueueReturn {
           is_muted: mergedSettings.isMuted,
           resize_config: mergedSettings.resizeEnabled
             ? {
-                width: mergedSettings.resizeWidth,
-                height: mergedSettings.resizeHeight,
-                mode: mergedSettings.resizeMode,
-                background_color: mergedSettings.backgroundColor,
-              }
+              width: mergedSettings.resizeWidth,
+              height: mergedSettings.resizeHeight,
+              mode: mergedSettings.resizeMode,
+              background_color: mergedSettings.backgroundColor,
+            }
             : null,
           naming_config: {
             blocks: mergedSettings.namingConfig.blocks.map((block) => {
@@ -143,6 +143,7 @@ export function useConversionQueue(): UseConversionQueueReturn {
           output_directory: mergedSettings.outputDirectory || null,
           conflict_mode: useAppSettingsStore.getState().conflictMode || "skip",
           processing_enabled: mergedSettings.processingEnabled ?? true,
+          max_bitrate: mergedSettings.maxBitrate || null,
         };
 
         const result = await invoke<ConversionResult>(

@@ -107,18 +107,8 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
         builder = builder.filter_complex(filter);
     }
 
-    let max_audio_bitrate = if let Some(source_audio_bps) = config.source_audio_bitrate {
-        let source_audio_kbps = (source_audio_bps / 1000) as u32;
-        if source_audio_kbps > 0 {
-            source_audio_kbps
-        } else {
-            320u32
-        }
-    } else {
-        320u32
-    };
     let raw_audio_bitrate = 64 + ((config.quality_percent as u32 * 256) / 100);
-    let final_audio_bitrate = raw_audio_bitrate.min(max_audio_bitrate);
+    let final_audio_bitrate = raw_audio_bitrate.min(320).max(128);
     let audio_bitrate = format!("{}k", final_audio_bitrate);
 
     let x264_preset = if config.quality_percent >= 80 {
@@ -140,20 +130,11 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
 
             builder = builder.arg("-crf", &vp9_crf.to_string());
 
-            if let Some(source_bps) = config.source_video_bitrate {
-                let source_kbps = source_bps / 1000;
-                if source_kbps > 0 {
-                    let quality_factor = config.quality_percent as f64 / 100.0;
-                    let multiplier = 0.3 + (quality_factor * 0.7);
-                    let cap_kbps = ((source_kbps as f64) * multiplier) as u64;
-                    let bufsize_kbps = cap_kbps;
-                    builder = builder
-                        .arg("-b:v", &format!("{}k", cap_kbps))
-                        .arg("-maxrate", &format!("{}k", cap_kbps))
-                        .arg("-bufsize", &format!("{}k", bufsize_kbps));
-                } else {
-                    builder = builder.arg("-b:v", "0");
-                }
+            if let Some(user_max) = config.max_bitrate {
+                builder = builder
+                    .arg("-b:v", &format!("{}k", user_max))
+                    .arg("-maxrate", &format!("{}k", user_max))
+                    .arg("-bufsize", &format!("{}k", user_max * 5));
             } else {
                 builder = builder.arg("-b:v", "0");
             }
@@ -201,25 +182,17 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
         _ => {}
     }
 
-    if let Some(source_bps) = config.source_video_bitrate {
-        let source_kbps = source_bps / 1000;
-        if source_kbps > 0 {
-            let is_crf_codec = matches!(
-                &config.output_format,
-                OutputFormat::Video(VideoFormat::Mp4)
-                    | OutputFormat::Video(VideoFormat::Mkv)
-                    | OutputFormat::Video(VideoFormat::Mov)
-            );
-
-            if is_crf_codec {
-                let quality_factor = config.quality_percent as f64 / 100.0;
-                let multiplier = 0.3 + (quality_factor * 0.7);
-                let cap_kbps = ((source_kbps as f64) * multiplier) as u64;
-                let bufsize_kbps = cap_kbps;
-                builder = builder
-                    .arg("-maxrate", &format!("{}k", cap_kbps))
-                    .arg("-bufsize", &format!("{}k", bufsize_kbps));
-            }
+    if let Some(user_max) = config.max_bitrate {
+        let is_crf_codec = matches!(
+            &config.output_format,
+            OutputFormat::Video(VideoFormat::Mp4)
+                | OutputFormat::Video(VideoFormat::Mkv)
+                | OutputFormat::Video(VideoFormat::Mov)
+        );
+        if is_crf_codec {
+            builder = builder
+                .arg("-maxrate", &format!("{}k", user_max))
+                .arg("-bufsize", &format!("{}k", user_max * 5));
         }
     }
 
@@ -252,18 +225,8 @@ pub fn build_audio_extract_args(config: &ConversionConfig) -> Vec<OsString> {
                 builder = builder.arg("-q:a", &q.min(9).to_string());
             }
             AudioFormat::Aac | AudioFormat::M4a => {
-                let max_bitrate = if let Some(source_audio_bps) = config.source_audio_bitrate {
-                    let source_kbps = (source_audio_bps / 1000) as u32;
-                    if source_kbps > 0 {
-                        source_kbps
-                    } else {
-                        320u32
-                    }
-                } else {
-                    320u32
-                };
                 let calculated_bitrate = 64 + ((config.quality_percent as u32 * 256) / 100);
-                let final_bitrate = calculated_bitrate.min(max_bitrate);
+                let final_bitrate = calculated_bitrate.min(320).max(128);
 
                 builder = builder.arg("-b:a", &format!("{}k", final_bitrate));
             }

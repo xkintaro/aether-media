@@ -155,6 +155,7 @@ pub struct ConversionRequest {
     pub conflict_mode: String,
     #[serde(default = "default_processing_enabled")]
     pub processing_enabled: bool,
+    pub max_bitrate: Option<u64>,
 }
 
 fn default_processing_enabled() -> bool {
@@ -171,8 +172,7 @@ pub struct ConversionConfig {
     pub is_muted: bool,
     pub strip_metadata: bool,
     pub conflict_mode: String,
-    pub source_video_bitrate: Option<u64>,
-    pub source_audio_bitrate: Option<u64>,
+    pub max_bitrate: Option<u64>,
 }
 
 impl ConversionConfig {
