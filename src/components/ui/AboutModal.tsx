@@ -90,7 +90,7 @@ export function AboutModal({ isOpen, onClose }: AboutModalProps) {
                 transition={{ delay: 0.3 }}
                 className="text-xs text-neon-cyan/80 font-mono uppercase tracking-widest mb-6"
               >
-                v1.0.1
+                v1.0.2
               </motion.p>
 
               <motion.p

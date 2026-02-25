@@ -1,6 +1,6 @@
 [package]
 name = "aether-media"
-version = "1.0.1"
+version = "1.0.2"
 description = "A powerful desktop media converter built with Tauri, supporting video, image and audio format conversions with batch processing."
 authors = ["Kintaro"]
 license = "GPL-3.0"
