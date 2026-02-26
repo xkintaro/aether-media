@@ -1,4 +1,4 @@
-﻿import { useState, useRef } from "react";
+﻿import { useState, useRef, useMemo } from "react";
 import { Minimize2, Square, X, RotateCcw, Settings, Info } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { motion, AnimatePresence } from "framer-motion";
@@ -11,7 +11,7 @@ import { useClickOutside } from "@/hooks";
 import logo from "@/assets/logo.png";
 
 export function Header() {
-  const appWindow = getCurrentWindow();
+  const appWindow = useMemo(() => getCurrentWindow(), []);
   const {
     autoRestoreSession,
     setAutoRestoreSession,

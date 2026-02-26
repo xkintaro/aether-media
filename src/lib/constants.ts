@@ -18,7 +18,7 @@ export const ANIMATION_DURATION = {
 } as const;
 
 export const CHUNK_SIZE = 50;
-export const PROCESS_DEBUG_DELAY = 10;
+export const PROCESS_DEBUG_DELAY = 0;
 
 export const EASING = {
   SPRING: [0.34, 1.56, 0.64, 1],

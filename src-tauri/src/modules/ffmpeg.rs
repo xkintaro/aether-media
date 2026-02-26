@@ -145,30 +145,7 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
                 .arg("-row-mt", "1")
                 .arg("-pix_fmt", "yuv420p");
         }
-        OutputFormat::Video(VideoFormat::Mp4) => {
-            builder = builder.arg("-c:v", "libx264");
-            if !config.is_muted {
-                builder = builder.arg("-c:a", "aac").arg("-b:a", &audio_bitrate);
-            }
-            builder = builder.arg("-crf", &config.calculate_crf().to_string());
-
-            builder = builder
-                .arg("-preset", x264_preset)
-                .arg("-movflags", "+faststart")
-                .arg("-pix_fmt", "yuv420p");
-        }
-        OutputFormat::Video(VideoFormat::Mkv) => {
-            builder = builder.arg("-c:v", "libx264");
-            if !config.is_muted {
-                builder = builder.arg("-c:a", "aac").arg("-b:a", &audio_bitrate);
-            }
-            builder = builder.arg("-crf", &config.calculate_crf().to_string());
-
-            builder = builder
-                .arg("-preset", x264_preset)
-                .arg("-pix_fmt", "yuv420p");
-        }
-        OutputFormat::Video(VideoFormat::Mov) => {
+        OutputFormat::Video(ref v @ (VideoFormat::Mp4 | VideoFormat::Mkv | VideoFormat::Mov)) => {
             builder = builder.arg("-c:v", "libx264");
             if !config.is_muted {
                 builder = builder.arg("-c:a", "aac").arg("-b:a", &audio_bitrate);
@@ -176,8 +153,10 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
             builder = builder
                 .arg("-crf", &config.calculate_crf().to_string())
                 .arg("-preset", x264_preset)
-                .arg("-movflags", "+faststart")
                 .arg("-pix_fmt", "yuv420p");
+            if matches!(v, VideoFormat::Mp4 | VideoFormat::Mov) {
+                builder = builder.arg("-movflags", "+faststart");
+            }
         }
         _ => {}
     }

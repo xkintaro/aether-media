@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { TAURI_COMMANDS } from "@/lib/constants";
+import { computeQueueStats } from "@/lib/utils";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useQueueStore } from "@/store/queueStore";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -111,11 +112,11 @@ export function useConversionQueue(): UseConversionQueueReturn {
           is_muted: mergedSettings.isMuted,
           resize_config: mergedSettings.resizeEnabled
             ? {
-              width: mergedSettings.resizeWidth,
-              height: mergedSettings.resizeHeight,
-              mode: mergedSettings.resizeMode,
-              background_color: mergedSettings.backgroundColor,
-            }
+                width: mergedSettings.resizeWidth,
+                height: mergedSettings.resizeHeight,
+                mode: mergedSettings.resizeMode,
+                background_color: mergedSettings.backgroundColor,
+              }
             : null,
           naming_config: {
             blocks: mergedSettings.namingConfig.blocks.map((block) => {
@@ -193,14 +194,7 @@ export function useConversionQueue(): UseConversionQueueReturn {
     setIsProcessing(false);
 
     const currentItems = useQueueStore.getState().items;
-    const stats = {
-      processed: currentItems.filter((i) =>
-        ["completed", "cancelled", "error"].includes(i.status),
-      ).length,
-      success: currentItems.filter((i) => i.status === "completed").length,
-      error: currentItems.filter((i) => i.status === "error").length,
-      cancelled: currentItems.filter((i) => i.status === "cancelled").length,
-    };
+    const stats = computeQueueStats(currentItems);
     showCompletionToasts(stats);
   }, [getNextPendingItem, processItem, setIsProcessing, showCompletionToasts]);
 
@@ -244,16 +238,9 @@ export function useConversionQueue(): UseConversionQueueReturn {
     processingRef.current = false;
     setIsProcessing(false);
 
-    const currentItems = useQueueStore.getState().items;
-    const stats = {
-      processed: currentItems.filter((i) =>
-        ["completed", "cancelled", "error"].includes(i.status),
-      ).length,
-      success: currentItems.filter((i) => i.status === "completed").length,
-      error: currentItems.filter((i) => i.status === "error").length,
-      cancelled: currentItems.filter((i) => i.status === "cancelled").length,
-    };
-    showCompletionToasts(stats);
+    const currentItems2 = useQueueStore.getState().items;
+    const stats2 = computeQueueStats(currentItems2);
+    showCompletionToasts(stats2);
   }, [getSelectedItems, processItem, setIsProcessing, showCompletionToasts]);
 
   useEffect(() => {

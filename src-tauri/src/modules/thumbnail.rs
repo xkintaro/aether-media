@@ -46,11 +46,14 @@ pub async fn delete_thumbnail(file_id: &str) -> std::io::Result<()> {
 }
 
 pub async fn delete_thumbnails(file_ids: &[String]) -> Vec<String> {
-    let mut failed = Vec::new();
-    for id in file_ids {
+    use futures::future::join_all;
+    let results = join_all(file_ids.iter().map(|id| async move {
         if delete_thumbnail(id).await.is_err() {
-            failed.push(id.clone());
+            Some(id.clone())
+        } else {
+            None
         }
-    }
-    failed
+    }))
+    .await;
+    results.into_iter().flatten().collect()
 }

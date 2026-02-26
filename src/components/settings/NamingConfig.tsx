@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { AnimatePresence } from "framer-motion";
-import { cn } from "@/lib/utils";
+import { cn, generateId } from "@/lib/utils";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import type { NamingBlock, NamingBlockType, NamingConfig } from "@/types";
 import { DEFAULT_RANDOM_LENGTH } from "@/types";
@@ -59,9 +59,6 @@ interface NamingConfigProps {
   config: NamingConfig;
   onChange: (config: NamingConfig) => void;
 }
-
-const generateId = () =>
-  `block-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 interface BlockItemProps {
   block: NamingBlock;
@@ -192,7 +189,7 @@ export function NamingConfig({ config, onChange }: NamingConfigProps) {
     if (!definition) return;
 
     const newBlock: NamingBlock = {
-      id: generateId(),
+      id: generateId("block"),
       type,
       params: definition.defaultParams,
     };

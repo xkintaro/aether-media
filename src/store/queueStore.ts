@@ -15,6 +15,7 @@ import { CHUNK_SIZE, TAURI_COMMANDS } from "@/lib/constants";
 
 interface QueueState {
   items: QueueItem[];
+  itemIndex: Map<string, number>;
   selectedIds: Set<string>;
   expandedId: string | null;
   isProcessing: boolean;
@@ -71,10 +72,19 @@ interface FileInput {
   mediaType: MediaType;
 }
 
+function rebuildIndex(items: QueueItem[]): Map<string, number> {
+  const index = new Map<string, number>();
+  for (let i = 0; i < items.length; i++) {
+    index.set(items[i].id, i);
+  }
+  return index;
+}
+
 export const useQueueStore = create<QueueState>()(
   persist(
     immer((set, get) => ({
       items: [],
+      itemIndex: new Map(),
       selectedIds: new Set(),
       expandedId: null,
       isProcessing: false,
@@ -105,7 +115,10 @@ export const useQueueStore = create<QueueState>()(
         }));
 
         set((state) => {
-          state.items.push(...newItems);
+          for (const item of newItems) {
+            state.itemIndex.set(item.id, state.items.length);
+            state.items.push(item);
+          }
         });
         return { added: uniqueFiles.length, skipped, newItems };
       },
@@ -116,9 +129,10 @@ export const useQueueStore = create<QueueState>()(
         const idsSet = new Set(ids);
         set((state) => {
           state.items = state.items.filter((item) => !idsSet.has(item.id));
-          state.selectedIds = new Set(
-            [...state.selectedIds].filter((id) => !idsSet.has(id)),
-          );
+          state.itemIndex = rebuildIndex(state.items as QueueItem[]);
+          for (const id of ids) {
+            state.selectedIds.delete(id);
+          }
           if (state.expandedId && idsSet.has(state.expandedId)) {
             state.expandedId = null;
           }
@@ -130,6 +144,7 @@ export const useQueueStore = create<QueueState>()(
         if (isProcessing) return;
         set((state) => {
           state.items = [];
+          state.itemIndex = new Map();
           state.selectedIds = new Set();
           state.expandedId = null;
         });
@@ -179,15 +194,16 @@ export const useQueueStore = create<QueueState>()(
 
       updateProgress: (id, progress) => {
         set((state) => {
-          const item = state.items.find((i) => i.id === id);
-          if (item) item.progress = progress;
+          const idx = state.itemIndex.get(id);
+          if (idx !== undefined) state.items[idx].progress = progress;
         });
       },
 
       updateStatus: (id, status, message) => {
         set((state) => {
-          const item = state.items.find((i) => i.id === id);
-          if (item) {
+          const idx = state.itemIndex.get(id);
+          if (idx !== undefined) {
+            const item = state.items[idx];
             item.status = status;
             item.errorMessage = message;
             if (status === "completed") item.progress = 100;
@@ -197,55 +213,61 @@ export const useQueueStore = create<QueueState>()(
 
       setOutputPath: (id, outputPath) => {
         set((state) => {
-          const item = state.items.find((i) => i.id === id);
-          if (item) item.outputPath = outputPath;
+          const idx = state.itemIndex.get(id);
+          if (idx !== undefined) state.items[idx].outputPath = outputPath;
         });
       },
 
       setThumbnail: (id, thumbnailPath) => {
         set((state) => {
-          const item = state.items.find((i) => i.id === id);
-          if (item) {
-            item.thumbnailPath = thumbnailPath;
-            item.thumbnailStatus = "loaded";
+          const idx = state.itemIndex.get(id);
+          if (idx !== undefined) {
+            state.items[idx].thumbnailPath = thumbnailPath;
+            state.items[idx].thumbnailStatus = "loaded";
           }
         });
       },
 
       setThumbnailLoading: (id) => {
         set((state) => {
-          const item = state.items.find((i) => i.id === id);
-          if (item && item.thumbnailStatus === "pending") {
-            item.thumbnailStatus = "loading";
+          const idx = state.itemIndex.get(id);
+          if (
+            idx !== undefined &&
+            state.items[idx].thumbnailStatus === "pending"
+          ) {
+            state.items[idx].thumbnailStatus = "loading";
           }
         });
       },
 
       setThumbnailError: (id) => {
         set((state) => {
-          const item = state.items.find((i) => i.id === id);
-          if (item) item.thumbnailStatus = "error";
+          const idx = state.itemIndex.get(id);
+          if (idx !== undefined) state.items[idx].thumbnailStatus = "error";
         });
       },
 
       updateOverrides: (id, overrides) => {
         set((state) => {
-          const item = state.items.find((i) => i.id === id);
-          if (item) {
-            item.overrideSettings = { ...item.overrideSettings, ...overrides };
+          const idx = state.itemIndex.get(id);
+          if (idx !== undefined) {
+            state.items[idx].overrideSettings = {
+              ...state.items[idx].overrideSettings,
+              ...overrides,
+            };
           }
         });
       },
 
       updateItemOverride: (id, overrides) => {
         set((state) => {
-          const item = state.items.find((i) => i.id === id);
-          if (item) {
+          const idx = state.itemIndex.get(id);
+          if (idx !== undefined) {
             if (overrides === null) {
-              item.overrideSettings = undefined;
+              state.items[idx].overrideSettings = undefined;
             } else {
-              item.overrideSettings = {
-                ...item.overrideSettings,
+              state.items[idx].overrideSettings = {
+                ...state.items[idx].overrideSettings,
                 ...overrides,
               };
             }
@@ -255,8 +277,8 @@ export const useQueueStore = create<QueueState>()(
 
       clearOverrides: (id) => {
         set((state) => {
-          const item = state.items.find((i) => i.id === id);
-          if (item) item.overrideSettings = undefined;
+          const idx = state.itemIndex.get(id);
+          if (idx !== undefined) state.items[idx].overrideSettings = undefined;
         });
       },
 
@@ -342,6 +364,7 @@ export const useQueueStore = create<QueueState>()(
         }
         set((state) => {
           state.items = [];
+          state.itemIndex = new Map();
           state.selectedIds = new Set();
           state.expandedId = null;
           state.hasPersistedQueue = false;
@@ -382,10 +405,6 @@ export const useQueueStore = create<QueueState>()(
                 }
               });
             }
-
-            if (i + CHUNK_SIZE < thumbnailPaths.length) {
-              await new Promise((resolve) => setTimeout(resolve, 50));
-            }
           } catch (e) {
             console.error("Failed to validate thumbnails batch:", e);
           }
@@ -407,7 +426,7 @@ export const useQueueStore = create<QueueState>()(
     {
       name: "aether-media-queue",
       partialize: (state) => ({
-        items: state.items,
+        items: state.items as QueueItem[],
       }),
       storage: {
         getItem: (name) => {
@@ -417,6 +436,7 @@ export const useQueueStore = create<QueueState>()(
 
           if (data.state) {
             data.state.selectedIds = new Set();
+            data.state.itemIndex = rebuildIndex(data.state.items || []);
             if (data.state.items && data.state.items.length > 0) {
               data.state.hasPersistedQueue = true;
               data.state.sessionRestoreHandled = false;
@@ -425,14 +445,7 @@ export const useQueueStore = create<QueueState>()(
           return data;
         },
         setItem: (name, value) => {
-          const serializable = {
-            ...value,
-            state: {
-              ...value.state,
-              selectedIds: [],
-            },
-          };
-          localStorage.setItem(name, JSON.stringify(serializable));
+          localStorage.setItem(name, JSON.stringify(value));
         },
         removeItem: (name) => localStorage.removeItem(name),
       },

@@ -7,9 +7,9 @@ import { useConversionQueue } from "@/hooks";
 import { SettingsPanel } from "@/components/settings";
 import { open } from "@tauri-apps/plugin-dialog";
 import { RetryModal } from "@/components/ui/RetryModal";
-import { cn } from "@/lib/utils";
+import { cn, computeQueueStats } from "@/lib/utils";
 import { SIDEBAR_WIDTH, TOOLBAR_HEIGHT } from "@/lib/constants";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export function Sidebar() {
   const {
@@ -27,19 +27,37 @@ export function Sidebar() {
   const [isProcessingCooldown, setIsProcessingCooldown] = useState(false);
   const [showRetryModal, setShowRetryModal] = useState(false);
 
-  const hasVideo = items.some((i) => i.mediaType === "video");
-  const hasImage = items.some((i) => i.mediaType === "image");
-  const hasAudio = items.some((i) => i.mediaType === "audio");
-  const isEmpty = items.length === 0;
-  const pendingCount = items.filter((i) => i.status === "pending").length;
-  const errorCount = items.filter((i) => i.status === "error").length;
-  const hasAnyPendingOrCancelled = items.some(
-    (i) => i.status === "pending" || i.status === "cancelled",
-  );
-  const totalProcessable =
-    pendingCount +
-    items.filter((i) => i.status === "cancelled").length +
-    errorCount;
+  const {
+    hasVideo,
+    hasImage,
+    hasAudio,
+    errorCount,
+    hasAnyPendingOrCancelled,
+    totalProcessable,
+    isEmpty,
+  } = useMemo(() => {
+    const stats = computeQueueStats(items);
+    let video = false,
+      image = false,
+      audio = false;
+    let cancelled = 0;
+    for (const item of items) {
+      if (item.mediaType === "video") video = true;
+      else if (item.mediaType === "image") image = true;
+      else if (item.mediaType === "audio") audio = true;
+      if (item.status === "cancelled") cancelled++;
+    }
+    return {
+      hasVideo: video,
+      hasImage: image,
+      hasAudio: audio,
+      pendingCount: stats.pending,
+      errorCount: stats.error,
+      hasAnyPendingOrCancelled: stats.pending > 0 || cancelled > 0,
+      totalProcessable: stats.pending + cancelled + stats.error,
+      isEmpty: items.length === 0,
+    };
+  }, [items]);
 
   const triggerCooldown = () => {
     setIsProcessingCooldown(true);

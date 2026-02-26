@@ -1,7 +1,7 @@
 ﻿import { memo, useCallback, useRef, useState, useMemo, useEffect } from "react";
 import { Trash2, Square, CheckSquare, RotateCcw } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { cn } from "@/lib/utils";
+import { cn, computeQueueStats } from "@/lib/utils";
 import { useQueueStore } from "@/store/queueStore";
 import { useAppSettingsStore } from "@/store/appSettingsStore";
 import { useToastStore } from "@/store/toastStore";
@@ -46,11 +46,6 @@ const VirtualRow = ({
       observer.disconnect();
     };
   }, [measureElement]);
-  useEffect(() => {
-    if (ref.current) {
-      measureElement(ref.current);
-    }
-  }, [index, measureElement]);
   return (
     <div
       ref={ref}
@@ -231,18 +226,7 @@ export const FileTable = memo(function FileTable() {
 
   const stats = useMemo(() => {
     if (!items.length) return null;
-    return {
-      success: items.filter((i) => i.status === "completed").length,
-      cancelled: items.filter((i) => i.status === "cancelled").length,
-      error: items.filter((i) => i.status === "error").length,
-      processed: items.filter((i) =>
-        ["completed", "cancelled", "error"].includes(i.status),
-      ).length,
-      remaining: items.filter(
-        (i) => i.status === "pending" || i.status === "processing",
-      ).length,
-      total: items.length,
-    };
+    return computeQueueStats(items);
   }, [items]);
 
   return (

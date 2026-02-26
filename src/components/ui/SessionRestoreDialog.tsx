@@ -7,7 +7,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { useQueueStore } from "@/store/queueStore";
-import { cn } from "@/lib/utils";
+import { cn, computeQueueStats } from "@/lib/utils";
 import { fadeIn, scaleIn } from "@/lib/animations";
 
 interface SessionRestoreDialogProps {
@@ -20,12 +20,13 @@ export function SessionRestoreDialog({
   onDiscard,
 }: SessionRestoreDialogProps) {
   const { items } = useQueueStore();
+  const queueStats = computeQueueStats(items);
   const stats = {
-    total: items.length,
-    completed: items.filter((i) => i.status === "completed").length,
-    pending: items.filter((i) => i.status === "pending").length,
-    error: items.filter((i) => i.status === "error").length,
-    processing: items.filter((i) => i.status === "processing").length,
+    total: queueStats.total,
+    completed: queueStats.success,
+    pending: queueStats.pending,
+    error: queueStats.error,
+    processing: queueStats.processing,
   };
 
   return (

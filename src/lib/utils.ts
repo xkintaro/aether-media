@@ -45,11 +45,55 @@ export function truncate(str: string, maxLength: number): string {
   return str.substring(0, maxLength - 3) + "...";
 }
 
-export function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export function generateId(prefix?: string): string {
   const base = crypto.randomUUID();
   return prefix ? `${prefix}-${base}` : base;
+}
+
+export interface QueueStats {
+  success: number;
+  cancelled: number;
+  error: number;
+  pending: number;
+  processing: number;
+  processed: number;
+  remaining: number;
+  total: number;
+}
+
+export function computeQueueStats(items: { status: string }[]): QueueStats {
+  let success = 0,
+    cancelled = 0,
+    error = 0,
+    pending = 0,
+    processing = 0;
+  for (const item of items) {
+    switch (item.status) {
+      case "completed":
+        success++;
+        break;
+      case "cancelled":
+        cancelled++;
+        break;
+      case "error":
+        error++;
+        break;
+      case "pending":
+        pending++;
+        break;
+      case "processing":
+        processing++;
+        break;
+    }
+  }
+  return {
+    success,
+    cancelled,
+    error,
+    pending,
+    processing,
+    processed: success + cancelled + error,
+    remaining: pending + processing,
+    total: items.length,
+  };
 }

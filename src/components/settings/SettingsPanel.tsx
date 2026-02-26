@@ -50,7 +50,7 @@ export function SettingsPanel({
       className={cn(
         "space-y-4",
         mode === "local" &&
-        "p-4 bg-graphite/50 rounded-xl border border-border-subtle",
+          "p-4 bg-graphite/50 rounded-xl border border-border-subtle",
       )}
     >
       {mode === "local" && (

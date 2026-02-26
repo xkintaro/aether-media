@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { ANIMATION_DURATION, EASING } from "@/lib/constants";
 import { useClickOutside } from "@/hooks";
 import type { OutputFormat, MediaType } from "@/types";
-import { getSupportedOutputFormats, DISPLAY_FORMATS } from "@/types";
+import { getAvailableOutputFormats, DISPLAY_FORMATS } from "@/types";
 
 interface FormatSelectorProps {
   value: OutputFormat | null;
@@ -22,7 +22,7 @@ export function FormatSelector({
 }: FormatSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const supportedFormats = getSupportedOutputFormats(mediaType);
+  const supportedFormats = getAvailableOutputFormats(mediaType);
   const accentColor = `text-media-${mediaType}`;
 
   useClickOutside(containerRef, () => setIsOpen(false), isOpen);

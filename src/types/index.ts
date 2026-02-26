@@ -82,8 +82,6 @@ export interface QueueItem {
   createdAt: number;
 }
 
-export interface GlobalSettings extends ConversionSettings { }
-
 export interface ProgressEvent {
   id: string;
   progress: number;
@@ -172,8 +170,6 @@ export function getAvailableOutputFormats(
       return AUDIO_OUTPUT_FORMATS;
   }
 }
-
-export const getSupportedOutputFormats = getAvailableOutputFormats;
 
 export function getDefaultOutputFormat(mediaType: MediaType): OutputFormat {
   switch (mediaType) {

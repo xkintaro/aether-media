@@ -20,9 +20,9 @@ use std::sync::OnceLock;
 
 static FFMPEG_PATH: OnceLock<PathBuf> = OnceLock::new();
 
-fn get_ffmpeg_path() -> Result<PathBuf, String> {
+fn get_ffmpeg_path() -> Result<&'static Path, String> {
     if let Some(path) = FFMPEG_PATH.get() {
-        return Ok(path.clone());
+        return Ok(path.as_path());
     }
 
     let exe_dir = std::env::current_exe()
@@ -52,8 +52,8 @@ fn get_ffmpeg_path() -> Result<PathBuf, String> {
             checked.push(candidate.clone());
             if candidate.exists() {
                 let resolved = candidate.canonicalize().unwrap_or(candidate);
-                let _ = FFMPEG_PATH.set(resolved.clone());
-                return Ok(resolved);
+                let _ = FFMPEG_PATH.set(resolved);
+                return Ok(FFMPEG_PATH.get().unwrap().as_path());
             }
         }
     }

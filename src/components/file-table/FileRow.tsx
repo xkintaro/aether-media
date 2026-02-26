@@ -24,7 +24,7 @@ import { useQueueStore } from "@/store/queueStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useToastStore } from "@/store/toastStore";
 import type { QueueItem, ProcessStatus, MediaType } from "@/types";
-import { useThumbnail } from "@/hooks/useThumbnail";
+import { generateThumbnail } from "@/hooks/useThumbnail";
 import { LazyThumbnail } from "@/components/ui/LazyThumbnail";
 import { ROW_HEIGHT, TAURI_COMMANDS } from "@/lib/constants";
 import { accordion, progressBar } from "@/lib/animations";
@@ -87,8 +87,6 @@ export const FileRow = memo(function FileRow({
   const { settings: globalSettings } = useSettingsStore();
 
   const isExpanded = expandedId === item.id;
-
-  const { generateThumbnail } = useThumbnail();
 
   const handleThumbnailLoad = (
     id: string,

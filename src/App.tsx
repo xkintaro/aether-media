@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -17,7 +17,6 @@ import { useToastStore } from "@/store/toastStore";
 import { useUploadStore } from "@/store/uploadStore";
 import { useAppSettingsStore } from "@/store/appSettingsStore";
 import { useSettingsStore } from "@/store/settingsStore";
-import { useConversionQueue } from "@/hooks";
 
 import { getMediaType, ALL_EXTENSIONS } from "@/types";
 import { getFileName, getExtension, cn } from "@/lib/utils";
@@ -45,9 +44,6 @@ function App() {
   const {
     items,
     addFiles,
-    updateProgress,
-    updateStatus,
-    setOutputPath,
     setThumbnailError,
     hasPersistedQueue,
     sessionRestoreHandled,
@@ -62,9 +58,12 @@ function App() {
     useUploadStore();
   const { settings } = useSettingsStore();
 
-  const overrideCount = items.filter((i) =>
-    hasEffectiveOverride(i.overrideSettings, settings),
-  ).length;
+  const overrideCount = useMemo(
+    () =>
+      items.filter((i) => hasEffectiveOverride(i.overrideSettings, settings))
+        .length,
+    [items, settings],
+  );
   const [isDragging, setIsDragging] = useState(false);
 
   const handleSessionRestore = useCallback(() => {
@@ -98,8 +97,6 @@ function App() {
   useEffect(() => {
     isSessionDialogActiveRef.current = showSessionDialog;
   }, [showSessionDialog]);
-
-  useConversionQueue();
 
   interface RustFileInfo {
     path: string;
@@ -240,6 +237,11 @@ function App() {
     ],
   );
 
+  const handleFilePathsRef = useRef(handleFilePaths);
+  useEffect(() => {
+    handleFilePathsRef.current = handleFilePaths;
+  }, [handleFilePaths]);
+
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
@@ -278,7 +280,7 @@ function App() {
           return;
 
         if (event.payload.paths?.length > 0) {
-          handleFilePaths(event.payload.paths);
+          handleFilePathsRef.current(event.payload.paths);
         }
       }),
     );
@@ -286,7 +288,8 @@ function App() {
     return () => {
       unlistenPromises.forEach((p) => p.then((unlisten) => unlisten()));
     };
-  }, [updateProgress, updateStatus, setOutputPath, handleFilePaths]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAddFiles = useCallback(async () => {
     if (isSessionDialogActiveRef.current || isProcessing) return;
