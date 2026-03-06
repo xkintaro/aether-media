@@ -205,7 +205,7 @@ pub async fn convert_file(
         input_path: input_path.clone(),
         output_path: final_output_path.clone(),
         output_format: output_format.clone(),
-        quality_percent: request.quality_percent,
+        quality_value: request.quality_value,
         resize_config: request.resize_config.clone(),
         is_muted: request.is_muted,
         strip_metadata: request.strip_metadata,

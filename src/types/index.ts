@@ -49,7 +49,9 @@ export interface ConversionSettings {
   videoFormat: VideoFormat | null;
   imageFormat: ImageFormat | null;
   audioFormat: AudioFormat | null;
-  qualityPercent: number;
+  videoQuality: number;
+  imageQuality: number;
+  audioQuality: number;
   resizeEnabled: boolean;
   resizeWidth: number;
   resizeHeight: number;
@@ -106,6 +108,7 @@ export const VIDEO_EXTENSIONS = [
   "flv",
   "m4v",
 ] as const;
+
 export const IMAGE_EXTENSIONS = [
   "jpg",
   "jpeg",
@@ -115,6 +118,7 @@ export const IMAGE_EXTENSIONS = [
   "tiff",
   "tif",
 ] as const;
+
 export const AUDIO_EXTENSIONS = [
   "mp3",
   "aac",
@@ -144,7 +148,9 @@ export const VIDEO_OUTPUT_FORMATS: VideoFormat[] = [
   "mov",
   "webm",
 ];
+
 export const IMAGE_OUTPUT_FORMATS: ImageFormat[] = ["jpg", "png", "webp"];
+
 export const AUDIO_OUTPUT_FORMATS: AudioFormat[] = ["mp3", "aac", "m4a", "ogg"];
 
 export function getMediaType(extension: string): MediaType | null {
@@ -184,12 +190,48 @@ export function getDefaultOutputFormat(mediaType: MediaType): OutputFormat {
 
 export const DEFAULT_RANDOM_LENGTH = 8;
 
+export interface FormatQualityInfo {
+  min: number;
+  max: number;
+  default: number;
+  step: number;
+  label: string;
+  unit: string;
+  description: string;
+  lowerIsBetter: boolean;
+  isLossless?: boolean;
+}
+
+export const FORMAT_QUALITY_CONFIG: Record<string, FormatQualityInfo> = {
+  // Video formats
+  mp4: { min: 18, max: 51, default: 23, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+  mkv: { min: 18, max: 51, default: 23, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+  mov: { min: 18, max: 51, default: 23, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+  webm: { min: 24, max: 63, default: 31, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+  // Image formats
+  jpg: { min: 2, max: 31, default: 5, step: 1, label: "Quality", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+  webp: { min: 20, max: 92, default: 75, step: 1, label: "Quality", unit: "", description: "Higher = higher quality", lowerIsBetter: false },
+  png: { min: 0, max: 0, default: 0, step: 0, label: "Lossless", unit: "", description: "No quality setting needed", lowerIsBetter: false, isLossless: true },
+  // Audio formats
+  mp3: { min: 0, max: 9, default: 2, step: 1, label: "VBR Quality", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+  aac: { min: 128, max: 320, default: 192, step: 8, label: "Bitrate", unit: "kbps", description: "Higher = higher quality", lowerIsBetter: false },
+  m4a: { min: 128, max: 320, default: 192, step: 8, label: "Bitrate", unit: "kbps", description: "Higher = higher quality", lowerIsBetter: false },
+  ogg: { min: 1, max: 8, default: 6, step: 1, label: "Quality", unit: "", description: "Higher = higher quality", lowerIsBetter: false },
+};
+
+export function getQualityConfigForFormat(format: string | null): FormatQualityInfo | null {
+  if (!format) return null;
+  return FORMAT_QUALITY_CONFIG[format.toLowerCase()] || null;
+}
+
 export const DEFAULT_SETTINGS: ConversionSettings = {
   outputFormat: null,
   videoFormat: null,
   imageFormat: null,
   audioFormat: null,
-  qualityPercent: 80,
+  videoQuality: 23,
+  imageQuality: 5,
+  audioQuality: 192,
   resizeEnabled: false,
   resizeWidth: 1920,
   resizeHeight: 1080,

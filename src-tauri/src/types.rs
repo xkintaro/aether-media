@@ -146,7 +146,7 @@ pub struct ConversionRequest {
     pub id: String,
     pub input_path: String,
     pub output_format: String,
-    pub quality_percent: u8,
+    pub quality_value: u16,
     pub strip_metadata: bool,
     pub is_muted: bool,
     pub resize_config: Option<ResizeConfig>,
@@ -167,33 +167,12 @@ pub struct ConversionConfig {
     pub input_path: PathBuf,
     pub output_path: PathBuf,
     pub output_format: OutputFormat,
-    pub quality_percent: u8,
+    pub quality_value: u16,
     pub resize_config: Option<ResizeConfig>,
     pub is_muted: bool,
     pub strip_metadata: bool,
     pub conflict_mode: String,
     pub max_bitrate: Option<u64>,
-}
-
-impl ConversionConfig {
-    pub fn calculate_crf(&self) -> u8 {
-        match &self.output_format {
-            OutputFormat::Video(VideoFormat::Webm) => {
-                let crf = 63.0 - ((self.quality_percent as f32 / 100.0) * 39.0);
-                crf.clamp(24.0, 63.0) as u8
-            }
-            OutputFormat::Video(VideoFormat::Mp4)
-            | OutputFormat::Video(VideoFormat::Mkv)
-            | OutputFormat::Video(VideoFormat::Mov) => {
-                let crf = 51.0 - ((self.quality_percent as f32 / 100.0) * 33.0);
-                crf.clamp(18.0, 51.0) as u8
-            }
-            _ => {
-                let crf = 51.0 - (self.quality_percent as f32 * 0.33);
-                crf.clamp(18.0, 51.0) as u8
-            }
-        }
-    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

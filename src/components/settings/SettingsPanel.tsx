@@ -10,6 +10,7 @@
 import { cn } from "@/lib/utils";
 import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
 import { FormatSelector } from "./FormatSelector";
+import { QualityConfig } from "./QualityConfig";
 import { ResizeConfig } from "./ResizeConfig";
 import { NamingConfig } from "./NamingConfig";
 import type { MediaType, ConversionSettings } from "@/types";
@@ -50,7 +51,7 @@ export function SettingsPanel({
       className={cn(
         "space-y-4",
         mode === "local" &&
-          "p-4 bg-graphite/50 rounded-xl border border-border-subtle",
+        "p-4 bg-graphite/50 rounded-xl border border-border-subtle",
       )}
     >
       {mode === "local" && (
@@ -135,31 +136,43 @@ export function SettingsPanel({
               />
             </div>
           )}
-          {(hasVideo || hasImage || hasAudio) && (
-            <div key="quality-slider" className="space-y-2">
-              <label className="flex items-center justify-between text-xs font-medium text-smoke">
-                <span className="flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-electric-violet" />
-                  Quality
-                </span>
-                <span className="font-mono text-neon-cyan">
-                  {settings.qualityPercent}%
-                </span>
-              </label>
-              <input
-                type="range"
-                min={10}
-                max={100}
-                value={settings.qualityPercent}
-                onChange={(e) =>
-                  onSettingsChange({ qualityPercent: parseInt(e.target.value) })
+          {hasVideo && settings.videoFormat && (
+            <div key="video-quality" className="space-y-2">
+              <QualityConfig
+                format={settings.videoFormat}
+                value={settings.videoQuality}
+                onChange={(value) =>
+                  onSettingsChange({ videoQuality: value })
                 }
-                className="w-full h-1.5 bg-slate rounded-full appearance-none cursor-pointer accent-neon-cyan"
+                mediaType="video"
+                accentColorClass="text-electric-violet"
               />
-              <div className="flex justify-between text-[10px] text-ash font-mono">
-                <span>Small size</span>
-                <span>High quality</span>
-              </div>
+            </div>
+          )}
+          {hasImage && settings.imageFormat && (
+            <div key="image-quality" className="space-y-2">
+              <QualityConfig
+                format={settings.imageFormat}
+                value={settings.imageQuality}
+                onChange={(value) =>
+                  onSettingsChange({ imageQuality: value })
+                }
+                mediaType="image"
+                accentColorClass="text-plasma-pink"
+              />
+            </div>
+          )}
+          {hasAudio && settings.audioFormat && (
+            <div key="audio-quality" className="space-y-2">
+              <QualityConfig
+                format={settings.audioFormat}
+                value={settings.audioQuality}
+                onChange={(value) =>
+                  onSettingsChange({ audioQuality: value })
+                }
+                mediaType="audio"
+                accentColorClass="text-ember-orange"
+              />
             </div>
           )}
           {hasVideo && (

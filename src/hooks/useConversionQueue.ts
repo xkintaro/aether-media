@@ -103,20 +103,29 @@ export function useConversionQueue(): UseConversionQueueReturn {
           outputFormat = getDefaultOutputFormat(item.mediaType);
         }
 
+        let qualityValue = 23;
+        if (item.mediaType === "video") {
+          qualityValue = mergedSettings.videoQuality;
+        } else if (item.mediaType === "image") {
+          qualityValue = mergedSettings.imageQuality;
+        } else if (item.mediaType === "audio") {
+          qualityValue = mergedSettings.audioQuality;
+        }
+
         const request = {
           id: itemId,
           input_path: item.inputPath,
           output_format: outputFormat,
-          quality_percent: mergedSettings.qualityPercent,
+          quality_value: qualityValue,
           strip_metadata: mergedSettings.stripMetadata,
           is_muted: mergedSettings.isMuted,
           resize_config: mergedSettings.resizeEnabled
             ? {
-                width: mergedSettings.resizeWidth,
-                height: mergedSettings.resizeHeight,
-                mode: mergedSettings.resizeMode,
-                background_color: mergedSettings.backgroundColor,
-              }
+              width: mergedSettings.resizeWidth,
+              height: mergedSettings.resizeHeight,
+              mode: mergedSettings.resizeMode,
+              background_color: mergedSettings.backgroundColor,
+            }
             : null,
           naming_config: {
             blocks: mergedSettings.namingConfig.blocks.map((block) => {
