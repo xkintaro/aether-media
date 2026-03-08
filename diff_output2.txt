@@ -1,0 +1,705 @@
+﻿diff --git a/src-tauri/src/commands.rs b/src-tauri/src/commands.rs
+index c540111..49fe3b6 100644
+--- a/src-tauri/src/commands.rs
++++ b/src-tauri/src/commands.rs
+@@ -211,6 +211,10 @@ pub async fn convert_file(
+         strip_metadata: request.strip_metadata,
+         conflict_mode: request.conflict_mode.clone(),
+         max_bitrate: request.max_bitrate,
++        video_preset: request
++            .video_preset
++            .clone()
++            .unwrap_or_else(|| "medium".to_string()),
+     };
+ 
+     let args = match &output_format {
+diff --git a/src-tauri/src/modules/ffmpeg.rs b/src-tauri/src/modules/ffmpeg.rs
+index 4e8fa05..4ad2438 100644
+--- a/src-tauri/src/modules/ffmpeg.rs
++++ b/src-tauri/src/modules/ffmpeg.rs
+@@ -107,22 +107,7 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
+         builder = builder.filter_complex(filter);
+     }
+ 
+-    let audio_bitrate = if config.quality_value <= 23 {
+-        "320k".to_string()
+-    } else if config.quality_value <= 35 {
+-        "192k".to_string()
+-    } else {
+-        "128k".to_string()
+-    };
+-
+-    let x264_preset = if config.quality_value <= 23 {
+-        "slow"
+-    } else if config.quality_value <= 35 {
+-        "medium"
+-    } else {
+-        "fast"
+-    };
+-
++    let audio_bitrate = "192k";
+     match &config.output_format {
+         OutputFormat::Video(VideoFormat::Webm) => {
+             builder = builder.arg("-c:v", "libvpx-vp9");
+@@ -145,7 +130,7 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
+ 
+             builder = builder
+                 .arg("-deadline", "good")
+-                .arg("-cpu-used", "2")
++                .arg("-cpu-used", "0")
+                 .arg("-row-mt", "1")
+                 .arg("-pix_fmt", "yuv420p");
+         }
+@@ -156,7 +141,7 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
+             }
+             builder = builder
+                 .arg("-crf", &config.quality_value.to_string())
+-                .arg("-preset", x264_preset)
++                .arg("-preset", &config.video_preset)
+                 .arg("-pix_fmt", "yuv420p");
+             if matches!(v, VideoFormat::Mp4 | VideoFormat::Mov) {
+                 builder = builder.arg("-movflags", "+faststart");
+@@ -237,10 +222,7 @@ pub fn build_image_args(config: &ConversionConfig) -> Vec<OsString> {
+             builder = builder.arg("-q:v", &config.quality_value.max(2).min(31).to_string());
+         }
+         OutputFormat::Image(ImageFormat::Webp) => {
+-            builder = builder.arg(
+-                "-quality",
+-                &config.quality_value.max(20).min(92).to_string(),
+-            );
++            builder = builder.arg("-quality", &config.quality_value.to_string());
+             builder = builder
+                 .arg("-preset", "photo")
+                 .arg("-compression_level", "6");
+@@ -299,7 +281,8 @@ pub fn build_thumbnail_args(input_path: &Path, output_path: &Path) -> Vec<OsStri
+         .arg("-ss", "00:00:01")
+         .input(input_path)
+         .arg("-vframes", "1")
+-        .filter_complex("scale=120:-1".to_string())
++        .arg("-q:v", "5")
++        .filter_complex("scale=240:-1".to_string())
+         .overwrite(true)
+         .output(output_path)
+         .build()
+@@ -309,7 +292,8 @@ pub fn build_image_thumbnail_args(input_path: &Path, output_path: &Path) -> Vec<
+     FFmpegCommandBuilder::new()
+         .input(input_path)
+         .arg("-vframes", "1")
+-        .filter_complex("scale=120:-1".to_string())
++        .arg("-q:v", "5")
++        .filter_complex("scale=240:-1".to_string())
+         .overwrite(true)
+         .output(output_path)
+         .build()
+diff --git a/src-tauri/src/types.rs b/src-tauri/src/types.rs
+index cfeda1e..b6c5ad3 100644
+--- a/src-tauri/src/types.rs
++++ b/src-tauri/src/types.rs
+@@ -156,6 +156,7 @@ pub struct ConversionRequest {
+     #[serde(default = "default_processing_enabled")]
+     pub processing_enabled: bool,
+     pub max_bitrate: Option<u64>,
++    pub video_preset: Option<String>,
+ }
+ 
+ fn default_processing_enabled() -> bool {
+@@ -173,6 +174,7 @@ pub struct ConversionConfig {
+     pub strip_metadata: bool,
+     pub conflict_mode: String,
+     pub max_bitrate: Option<u64>,
++    pub video_preset: String,
+ }
+ 
+ #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+diff --git a/src/components/file-table/FileRow.tsx b/src/components/file-table/FileRow.tsx
+index 39536c4..015db73 100644
+--- a/src/components/file-table/FileRow.tsx
++++ b/src/components/file-table/FileRow.tsx
+@@ -116,6 +116,8 @@ export const FileRow = memo(function FileRow({
+     ...(item.overrideSettings || {}),
+   };
+ 
++  const originalFormat = item.inputPath.split(".").pop()?.toLowerCase();
++
+   const hasOverride = hasEffectiveOverride(
+     item.overrideSettings,
+     globalSettings,
+@@ -264,7 +266,7 @@ export const FileRow = memo(function FileRow({
+                     className={cn(
+                       "h-full",
+                       item.status === "processing" &&
+-                        "bg-linear-to-r from-neon-cyan to-electric-violet",
++                      "bg-linear-to-r from-neon-cyan to-electric-violet",
+                       item.status === "error" && "bg-danger-red",
+                       item.status === "cancelled" && "bg-warning-amber",
+                     )}
+@@ -328,6 +330,9 @@ export const FileRow = memo(function FileRow({
+                     }}
+                     mediaType={item.mediaType}
+                     mode="local"
++                    originalVideoFormats={item.mediaType === "video" && originalFormat ? [originalFormat] : undefined}
++                    originalImageFormats={item.mediaType === "image" && originalFormat ? [originalFormat] : undefined}
++                    originalAudioFormats={item.mediaType === "audio" && originalFormat ? [originalFormat] : undefined}
+                   />
+                   {hasOverride && (
+                     <button
+diff --git a/src/components/layout/Sidebar.tsx b/src/components/layout/Sidebar.tsx
+index 544a061..bd3b5e6 100644
+--- a/src/components/layout/Sidebar.tsx
++++ b/src/components/layout/Sidebar.tsx
+@@ -31,6 +31,9 @@ export function Sidebar() {
+     hasVideo,
+     hasImage,
+     hasAudio,
++    originalVideoFormats,
++    originalImageFormats,
++    originalAudioFormats,
+     errorCount,
+     hasAnyPendingOrCancelled,
+     totalProcessable,
+@@ -41,16 +44,31 @@ export function Sidebar() {
+       image = false,
+       audio = false;
+     let cancelled = 0;
++    const videoFormats = new Set<string>();
++    const imageFormats = new Set<string>();
++    const audioFormats = new Set<string>();
++
+     for (const item of items) {
+-      if (item.mediaType === "video") video = true;
+-      else if (item.mediaType === "image") image = true;
+-      else if (item.mediaType === "audio") audio = true;
++      const ext = item.inputPath.split(".").pop()?.toLowerCase();
++      if (item.mediaType === "video") {
++        video = true;
++        if (ext) videoFormats.add(ext);
++      } else if (item.mediaType === "image") {
++        image = true;
++        if (ext) imageFormats.add(ext === "jpeg" ? "jpg" : ext);
++      } else if (item.mediaType === "audio") {
++        audio = true;
++        if (ext) audioFormats.add(ext);
++      }
+       if (item.status === "cancelled") cancelled++;
+     }
+     return {
+       hasVideo: video,
+       hasImage: image,
+       hasAudio: audio,
++      originalVideoFormats: Array.from(videoFormats),
++      originalImageFormats: Array.from(imageFormats),
++      originalAudioFormats: Array.from(audioFormats),
+       pendingCount: stats.pending,
+       errorCount: stats.error,
+       hasAnyPendingOrCancelled: stats.pending > 0 || cancelled > 0,
+@@ -173,6 +191,9 @@ export function Sidebar() {
+             hasVideo={hasVideo}
+             hasImage={hasImage}
+             hasAudio={hasAudio}
++            originalVideoFormats={originalVideoFormats}
++            originalImageFormats={originalImageFormats}
++            originalAudioFormats={originalAudioFormats}
+             mode="global"
+             showOutputDir={true}
+             outputDirectory={outputDirectory}
+diff --git a/src/components/settings/QualityConfig.tsx b/src/components/settings/QualityConfig.tsx
+index 807a3e8..7dc32ca 100644
+--- a/src/components/settings/QualityConfig.tsx
++++ b/src/components/settings/QualityConfig.tsx
+@@ -1,4 +1,5 @@
+-import { Sparkles, Info } from "lucide-react";
++import { Info, Sparkles } from "lucide-react";
++import { useEffect } from "react";
+ import { cn } from "@/lib/utils";
+ import type { FormatQualityInfo } from "@/types";
+ import { getQualityConfigForFormat } from "@/types";
+@@ -46,15 +47,21 @@ export function QualityConfig({
+                 </label>
+                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-graphite border border-border-subtle">
+                     <Info className="w-3.5 h-3.5 text-plasma-pink shrink-0" />
+-                    <span className="text-xs text-smoke">
+-                        <span className="font-medium text-plasma-pink">{format.toUpperCase()}</span>
+-                        {" ÔÇö Lossless format"}
++                    <span className="text-xs text-ash">
++                        <span className="font-medium text-plasma-pink mr-1">{format.toUpperCase()}</span>
++                        {" Lossless format"}
+                     </span>
+                 </div>
+             </div>
+         );
+     }
+ 
++    useEffect(() => {
++        if (value < config.min || value > config.max) {
++            onChange(config.default);
++        }
++    }, [value, config, onChange]);
++
+     const displayValue = getDisplayValue(value, config);
+     const sliderValue = config.lowerIsBetter ? config.max - value + config.min : value;
+ 
+@@ -64,8 +71,6 @@ export function QualityConfig({
+         onChange(actual);
+     };
+ 
+-    const qualityLevel = getQualityLevel(value, config);
+-
+     return (
+         <div className="space-y-2">
+             <label className="flex items-center justify-between text-xs font-medium text-smoke">
+@@ -76,7 +81,7 @@ export function QualityConfig({
+                         {format.toUpperCase()}
+                     </span>
+                 </span>
+-                <span className="font-mono text-neon-cyan">
++                <span className={cn("font-mono", iconColor)}>
+                     {config.label}: {displayValue}
+                 </span>
+             </label>
+@@ -87,22 +92,15 @@ export function QualityConfig({
+                 step={config.step}
+                 value={sliderValue}
+                 onChange={handleSliderChange}
+-                className="w-full h-1.5 bg-slate rounded-full appearance-none cursor-pointer accent-neon-cyan"
++                className={cn(
++                    "w-full h-1.5 bg-slate rounded-full appearance-none cursor-pointer",
++                    mediaType === "video" && "accent-electric-violet",
++                    mediaType === "image" && "accent-plasma-pink",
++                    mediaType === "audio" && "accent-ember-orange"
++                )}
+             />
+             <div className="flex justify-between text-[10px] text-ash font-mono">
+                 <span>Low Quality</span>
+-
+-                <span
+-                    className={cn(
+-                        "px-1.5 py-0.5 rounded",
+-                        qualityLevel === "high" && "text-success-green",
+-                        qualityLevel === "medium" && "text-warning-amber",
+-                        qualityLevel === "low" && "text-error-red",
+-                    )}
+-                >
+-                    {config.description}
+-                </span>
+-
+                 <span>High Quality</span>
+             </div>
+         </div>
+@@ -111,25 +109,7 @@ export function QualityConfig({
+ 
+ function getDisplayValue(value: number, config: FormatQualityInfo): string {
+     if (config.unit) {
+-        return `${value} ${config.unit}`;
++        return `${value} ${config.unit} `;
+     }
+-    return `${value}`;
+-}
+-
+-function getQualityLevel(
+-    value: number,
+-    config: FormatQualityInfo,
+-): "high" | "medium" | "low" {
+-    const range = config.max - config.min;
+-    const normalized = (value - config.min) / range;
+-
+-    if (config.lowerIsBetter) {
+-        if (normalized <= 0.33) return "high";
+-        if (normalized <= 0.66) return "medium";
+-        return "low";
+-    } else {
+-        if (normalized >= 0.66) return "high";
+-        if (normalized >= 0.33) return "medium";
+-        return "low";
+-    }
+-}
++    return `${value} `;
++}
+\ No newline at end of file
+diff --git a/src/components/settings/SettingsPanel.tsx b/src/components/settings/SettingsPanel.tsx
+index 8db2163..1ad5520 100644
+--- a/src/components/settings/SettingsPanel.tsx
++++ b/src/components/settings/SettingsPanel.tsx
+@@ -11,9 +11,11 @@ import { cn } from "@/lib/utils";
+ import { ToggleSwitch } from "@/components/ui/ToggleSwitch";
+ import { FormatSelector } from "./FormatSelector";
+ import { QualityConfig } from "./QualityConfig";
++import { PresetSelector } from "./PresetSelector";
+ import { ResizeConfig } from "./ResizeConfig";
+ import { NamingConfig } from "./NamingConfig";
+ import type { MediaType, ConversionSettings } from "@/types";
++import { getQualityConfigForFormat } from "@/types";
+ 
+ interface SettingsPanelProps {
+   settings: ConversionSettings;
+@@ -26,6 +28,9 @@ interface SettingsPanelProps {
+   showOutputDir?: boolean;
+   outputDirectory?: string | null;
+   onSelectOutputDir?: () => void;
++  originalVideoFormats?: string[];
++  originalImageFormats?: string[];
++  originalAudioFormats?: string[];
+ }
+ 
+ export function SettingsPanel({
+@@ -39,6 +44,9 @@ export function SettingsPanel({
+   showOutputDir = false,
+   outputDirectory,
+   onSelectOutputDir,
++  originalVideoFormats = [],
++  originalImageFormats = [],
++  originalAudioFormats = [],
+ }: SettingsPanelProps) {
+   const hasVideo = propsHasVideo ?? mediaType === "video";
+   const hasImage = propsHasImage ?? mediaType === "image";
+@@ -99,9 +107,14 @@ export function SettingsPanel({
+               </label>
+               <FormatSelector
+                 value={settings.videoFormat}
+-                onChange={(format) =>
+-                  onSettingsChange({ videoFormat: format as any })
+-                }
++                onChange={(format) => {
++                  const updates: Partial<ConversionSettings> = { videoFormat: format as any };
++                  const qualityConfig = getQualityConfigForFormat(format || "mp4");
++                  if (qualityConfig) {
++                    updates.videoQuality = qualityConfig.default;
++                  }
++                  onSettingsChange(updates);
++                }}
+                 mediaType="video"
+               />
+             </div>
+@@ -114,9 +127,14 @@ export function SettingsPanel({
+               </label>
+               <FormatSelector
+                 value={settings.imageFormat}
+-                onChange={(format) =>
+-                  onSettingsChange({ imageFormat: format as any })
+-                }
++                onChange={(format) => {
++                  const updates: Partial<ConversionSettings> = { imageFormat: format as any };
++                  const qualityConfig = getQualityConfigForFormat(format || "jpg");
++                  if (qualityConfig) {
++                    updates.imageQuality = qualityConfig.default;
++                  }
++                  onSettingsChange(updates);
++                }}
+                 mediaType="image"
+               />
+             </div>
+@@ -129,52 +147,114 @@ export function SettingsPanel({
+               </label>
+               <FormatSelector
+                 value={settings.audioFormat}
+-                onChange={(format) =>
+-                  onSettingsChange({ audioFormat: format as any })
+-                }
+-                mediaType="audio"
+-              />
+-            </div>
+-          )}
+-          {hasVideo && settings.videoFormat && (
+-            <div key="video-quality" className="space-y-2">
+-              <QualityConfig
+-                format={settings.videoFormat}
+-                value={settings.videoQuality}
+-                onChange={(value) =>
+-                  onSettingsChange({ videoQuality: value })
+-                }
+-                mediaType="video"
+-                accentColorClass="text-electric-violet"
+-              />
+-            </div>
+-          )}
+-          {hasImage && settings.imageFormat && (
+-            <div key="image-quality" className="space-y-2">
+-              <QualityConfig
+-                format={settings.imageFormat}
+-                value={settings.imageQuality}
+-                onChange={(value) =>
+-                  onSettingsChange({ imageQuality: value })
+-                }
+-                mediaType="image"
+-                accentColorClass="text-plasma-pink"
+-              />
+-            </div>
+-          )}
+-          {hasAudio && settings.audioFormat && (
+-            <div key="audio-quality" className="space-y-2">
+-              <QualityConfig
+-                format={settings.audioFormat}
+-                value={settings.audioQuality}
+-                onChange={(value) =>
+-                  onSettingsChange({ audioQuality: value })
+-                }
++                onChange={(format) => {
++                  const updates: Partial<ConversionSettings> = { audioFormat: format as any };
++                  const qualityConfig = getQualityConfigForFormat(format || "mp3");
++                  if (qualityConfig) {
++                    updates.audioQuality = qualityConfig.default;
++                  }
++                  onSettingsChange(updates);
++                }}
+                 mediaType="audio"
+-                accentColorClass="text-ember-orange"
+               />
+             </div>
+           )}
++          {hasVideo && (() => {
++            const isOriginal = !settings.videoFormat;
++            const formatsToShow = isOriginal
++              ? (originalVideoFormats.length > 0 ? originalVideoFormats : ["mp4"])
++              : [settings.videoFormat as string];
++
++            return formatsToShow.map((fmt) => (
++              <div key={`video-quality-${fmt}`} className="space-y-2">
++                <QualityConfig
++                  format={fmt}
++                  value={
++                    isOriginal ? (settings.dynamicVideoQuality?.[fmt] ?? settings.videoQuality) : settings.videoQuality
++                  }
++                  onChange={(value) => {
++                    if (isOriginal) {
++                      onSettingsChange({
++                        dynamicVideoQuality: { ...settings.dynamicVideoQuality, [fmt]: value }
++                      });
++                    } else {
++                      onSettingsChange({ videoQuality: value });
++                    }
++                  }}
++                  mediaType="video"
++                  accentColorClass="text-electric-violet"
++                />
++              </div>
++            ));
++          })()}
++          {hasVideo &&
++            (!settings.videoFormat || ["mp4", "mkv", "mov"].includes(settings.videoFormat)) && (
++              <div key="video-preset" className="space-y-2">
++                <PresetSelector
++                  value={settings.videoPreset as any}
++                  onChange={(preset) =>
++                    onSettingsChange({ videoPreset: preset })
++                  }
++                  accentColorClass="text-electric-violet"
++                />
++              </div>
++            )}
++          {hasImage && (() => {
++            const isOriginal = !settings.imageFormat;
++            const formatsToShow = isOriginal
++              ? (originalImageFormats.length > 0 ? originalImageFormats : ["jpg"])
++              : [settings.imageFormat as string];
++
++            return formatsToShow.map((fmt) => (
++              <div key={`image-quality-${fmt}`} className="space-y-2">
++                <QualityConfig
++                  format={fmt}
++                  value={
++                    isOriginal ? (settings.dynamicImageQuality?.[fmt] ?? settings.imageQuality) : settings.imageQuality
++                  }
++                  onChange={(value) => {
++                    if (isOriginal) {
++                      onSettingsChange({
++                        dynamicImageQuality: { ...settings.dynamicImageQuality, [fmt]: value }
++                      });
++                    } else {
++                      onSettingsChange({ imageQuality: value });
++                    }
++                  }}
++                  mediaType="image"
++                  accentColorClass="text-plasma-pink"
++                />
++              </div>
++            ));
++          })()}
++          {hasAudio && (() => {
++            const isOriginal = !settings.audioFormat;
++            const formatsToShow = isOriginal
++              ? (originalAudioFormats.length > 0 ? originalAudioFormats : ["mp3"])
++              : [settings.audioFormat as string];
++
++            return formatsToShow.map((fmt) => (
++              <div key={`audio-quality-${fmt}`} className="space-y-2">
++                <QualityConfig
++                  format={fmt}
++                  value={
++                    isOriginal ? (settings.dynamicAudioQuality?.[fmt] ?? settings.audioQuality) : settings.audioQuality
++                  }
++                  onChange={(value) => {
++                    if (isOriginal) {
++                      onSettingsChange({
++                        dynamicAudioQuality: { ...settings.dynamicAudioQuality, [fmt]: value }
++                      });
++                    } else {
++                      onSettingsChange({ audioQuality: value });
++                    }
++                  }}
++                  mediaType="audio"
++                  accentColorClass="text-ember-orange"
++                />
++              </div>
++            ));
++          })()}
+           {hasVideo && (
+             <div key="max-bitrate" className="space-y-2">
+               <label className="flex items-center justify-between text-xs font-medium text-smoke">
+@@ -191,7 +271,7 @@ export function SettingsPanel({
+                 min={100}
+                 max={100000}
+                 step={100}
+-                placeholder="Auto (no limit)"
++                placeholder="Auto"
+                 value={settings.maxBitrate ?? ""}
+                 onChange={(e) => {
+                   const val = e.target.value;
+@@ -201,9 +281,6 @@ export function SettingsPanel({
+                 }}
+                 className="w-full px-3 py-1.5 rounded-lg bg-graphite border border-border-subtle text-sm text-snow placeholder:text-ash/50 font-mono focus:outline-none focus:border-neon-cyan/50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+               />
+-              <p className="text-[10px] text-ash">
+-                Leave empty for automatic (source bitrate cap only)
+-              </p>
+             </div>
+           )}
+           {showResize && (
+diff --git a/src/components/settings/index.ts b/src/components/settings/index.ts
+index b0777dd..47d745c 100644
+--- a/src/components/settings/index.ts
++++ b/src/components/settings/index.ts
+@@ -1,5 +1,6 @@
+ export { FormatSelector } from "./FormatSelector";
+ export { QualityConfig } from "./QualityConfig";
++export { PresetSelector } from "./PresetSelector";
+ export { ResizeConfig } from "./ResizeConfig";
+ export { NamingConfig } from "./NamingConfig";
+ export { SettingsPanel } from "./SettingsPanel";
+diff --git a/src/hooks/useConversionQueue.ts b/src/hooks/useConversionQueue.ts
+index a4c5f26..01bb379 100644
+--- a/src/hooks/useConversionQueue.ts
++++ b/src/hooks/useConversionQueue.ts
+@@ -7,7 +7,7 @@ import { useQueueStore } from "@/store/queueStore";
+ import { useSettingsStore } from "@/store/settingsStore";
+ import { useAppSettingsStore } from "@/store/appSettingsStore";
+ import { useToastStore } from "@/store/toastStore";
+-import { getDefaultOutputFormat, DEFAULT_RANDOM_LENGTH } from "@/types";
++import { getDefaultOutputFormat, DEFAULT_RANDOM_LENGTH, getQualityConfigForFormat } from "@/types";
+ import type {
+   ConversionSettings,
+   ProgressEvent,
+@@ -103,13 +103,32 @@ export function useConversionQueue(): UseConversionQueueReturn {
+           outputFormat = getDefaultOutputFormat(item.mediaType);
+         }
+ 
++        let isOriginalFormat = false;
++        if (item.mediaType === "video" && !mergedSettings.videoFormat) isOriginalFormat = true;
++        if (item.mediaType === "image" && !mergedSettings.imageFormat) isOriginalFormat = true;
++        if (item.mediaType === "audio" && !mergedSettings.audioFormat) isOriginalFormat = true;
++
+         let qualityValue = 23;
+         if (item.mediaType === "video") {
+-          qualityValue = mergedSettings.videoQuality;
++          qualityValue = isOriginalFormat
++            ? (mergedSettings.dynamicVideoQuality?.[outputFormat] ?? mergedSettings.videoQuality)
++            : mergedSettings.videoQuality;
+         } else if (item.mediaType === "image") {
+-          qualityValue = mergedSettings.imageQuality;
++          qualityValue = isOriginalFormat
++            ? (mergedSettings.dynamicImageQuality?.[outputFormat] ?? mergedSettings.imageQuality)
++            : mergedSettings.imageQuality;
+         } else if (item.mediaType === "audio") {
+-          qualityValue = mergedSettings.audioQuality;
++          qualityValue = isOriginalFormat
++            ? (mergedSettings.dynamicAudioQuality?.[outputFormat] ?? mergedSettings.audioQuality)
++            : mergedSettings.audioQuality;
++        }
++
++        const qualityConfig = getQualityConfigForFormat(outputFormat);
++        if (
++          qualityConfig &&
++          (qualityValue < qualityConfig.min || qualityValue > qualityConfig.max)
++        ) {
++          qualityValue = qualityConfig.default;
+         }
+ 
+         const request = {
+@@ -154,6 +173,7 @@ export function useConversionQueue(): UseConversionQueueReturn {
+           conflict_mode: useAppSettingsStore.getState().conflictMode || "skip",
+           processing_enabled: mergedSettings.processingEnabled ?? true,
+           max_bitrate: mergedSettings.maxBitrate || null,
++          video_preset: item.mediaType === "video" ? mergedSettings.videoPreset : null,
+         };
+ 
+         const result = await invoke<ConversionResult>(
+diff --git a/src/index.css b/src/index.css
+index 9ba0fdd..a9e2a3f 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -259,4 +259,4 @@
+   opacity: 0.03;
+   pointer-events: none;
+   border-radius: inherit;
+-}
++}
+\ No newline at end of file
+diff --git a/src/types/index.ts b/src/types/index.ts
+index 8803f07..613288c 100644
+--- a/src/types/index.ts
++++ b/src/types/index.ts
+@@ -52,6 +52,9 @@ export interface ConversionSettings {
+   videoQuality: number;
+   imageQuality: number;
+   audioQuality: number;
++  dynamicVideoQuality: Record<string, number>;
++  dynamicImageQuality: Record<string, number>;
++  dynamicAudioQuality: Record<string, number>;
+   resizeEnabled: boolean;
+   resizeWidth: number;
+   resizeHeight: number;
+@@ -64,6 +67,7 @@ export interface ConversionSettings {
+   conflictMode: ConflictMode;
+   processingEnabled: boolean;
+   maxBitrate: number | null;
++  videoPreset: string;
+ }
+ 
+ export type ThumbnailStatus = "pending" | "loading" | "loaded" | "error";
+@@ -203,16 +207,16 @@ export interface FormatQualityInfo {
+ }
+ 
+ export const FORMAT_QUALITY_CONFIG: Record<string, FormatQualityInfo> = {
+-  // Video formats
++  // Video
+   mp4: { min: 18, max: 51, default: 23, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+   mkv: { min: 18, max: 51, default: 23, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+   mov: { min: 18, max: 51, default: 23, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+   webm: { min: 24, max: 63, default: 31, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+-  // Image formats
++  // Image
+   jpg: { min: 2, max: 31, default: 5, step: 1, label: "Quality", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+-  webp: { min: 20, max: 92, default: 75, step: 1, label: "Quality", unit: "", description: "Higher = higher quality", lowerIsBetter: false },
++  webp: { min: 1, max: 100, default: 80, step: 1, label: "Quality", unit: "", description: "Higher = higher quality", lowerIsBetter: false },
+   png: { min: 0, max: 0, default: 0, step: 0, label: "Lossless", unit: "", description: "No quality setting needed", lowerIsBetter: false, isLossless: true },
+-  // Audio formats
++  // Audio
+   mp3: { min: 0, max: 9, default: 2, step: 1, label: "VBR Quality", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
+   aac: { min: 128, max: 320, default: 192, step: 8, label: "Bitrate", unit: "kbps", description: "Higher = higher quality", lowerIsBetter: false },
+   m4a: { min: 128, max: 320, default: 192, step: 8, label: "Bitrate", unit: "kbps", description: "Higher = higher quality", lowerIsBetter: false },
+@@ -231,7 +235,10 @@ export const DEFAULT_SETTINGS: ConversionSettings = {
+   audioFormat: null,
+   videoQuality: 23,
+   imageQuality: 5,
+-  audioQuality: 192,
++  audioQuality: 2,
++  dynamicVideoQuality: {},
++  dynamicImageQuality: {},
++  dynamicAudioQuality: {},
+   resizeEnabled: false,
+   resizeWidth: 1920,
+   resizeHeight: 1080,
+@@ -246,4 +253,5 @@ export const DEFAULT_SETTINGS: ConversionSettings = {
+   conflictMode: "skip",
+   processingEnabled: true,
+   maxBitrate: null,
++  videoPreset: "medium",
+ };

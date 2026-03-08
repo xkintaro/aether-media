@@ -7,7 +7,7 @@ import { useQueueStore } from "@/store/queueStore";
 import { useSettingsStore } from "@/store/settingsStore";
 import { useAppSettingsStore } from "@/store/appSettingsStore";
 import { useToastStore } from "@/store/toastStore";
-import { getDefaultOutputFormat, DEFAULT_RANDOM_LENGTH } from "@/types";
+import { getDefaultOutputFormat, DEFAULT_RANDOM_LENGTH, getQualityConfigForFormat } from "@/types";
 import type {
   ConversionSettings,
   ProgressEvent,
@@ -103,13 +103,32 @@ export function useConversionQueue(): UseConversionQueueReturn {
           outputFormat = getDefaultOutputFormat(item.mediaType);
         }
 
+        let isOriginalFormat = false;
+        if (item.mediaType === "video" && !mergedSettings.videoFormat) isOriginalFormat = true;
+        if (item.mediaType === "image" && !mergedSettings.imageFormat) isOriginalFormat = true;
+        if (item.mediaType === "audio" && !mergedSettings.audioFormat) isOriginalFormat = true;
+
         let qualityValue = 23;
         if (item.mediaType === "video") {
-          qualityValue = mergedSettings.videoQuality;
+          qualityValue = isOriginalFormat
+            ? (mergedSettings.dynamicVideoQuality?.[outputFormat] ?? mergedSettings.videoQuality)
+            : mergedSettings.videoQuality;
         } else if (item.mediaType === "image") {
-          qualityValue = mergedSettings.imageQuality;
+          qualityValue = isOriginalFormat
+            ? (mergedSettings.dynamicImageQuality?.[outputFormat] ?? mergedSettings.imageQuality)
+            : mergedSettings.imageQuality;
         } else if (item.mediaType === "audio") {
-          qualityValue = mergedSettings.audioQuality;
+          qualityValue = isOriginalFormat
+            ? (mergedSettings.dynamicAudioQuality?.[outputFormat] ?? mergedSettings.audioQuality)
+            : mergedSettings.audioQuality;
+        }
+
+        const qualityConfig = getQualityConfigForFormat(outputFormat);
+        if (
+          qualityConfig &&
+          (qualityValue < qualityConfig.min || qualityValue > qualityConfig.max)
+        ) {
+          qualityValue = qualityConfig.default;
         }
 
         const request = {
@@ -154,6 +173,7 @@ export function useConversionQueue(): UseConversionQueueReturn {
           conflict_mode: useAppSettingsStore.getState().conflictMode || "skip",
           processing_enabled: mergedSettings.processingEnabled ?? true,
           max_bitrate: mergedSettings.maxBitrate || null,
+          video_preset: item.mediaType === "video" ? mergedSettings.videoPreset : null,
         };
 
         const result = await invoke<ConversionResult>(

@@ -211,6 +211,10 @@ pub async fn convert_file(
         strip_metadata: request.strip_metadata,
         conflict_mode: request.conflict_mode.clone(),
         max_bitrate: request.max_bitrate,
+        video_preset: request
+            .video_preset
+            .clone()
+            .unwrap_or_else(|| "medium".to_string()),
     };
 
     let args = match &output_format {

@@ -116,6 +116,8 @@ export const FileRow = memo(function FileRow({
     ...(item.overrideSettings || {}),
   };
 
+  const originalFormat = item.inputPath.split(".").pop()?.toLowerCase();
+
   const hasOverride = hasEffectiveOverride(
     item.overrideSettings,
     globalSettings,
@@ -264,7 +266,7 @@ export const FileRow = memo(function FileRow({
                     className={cn(
                       "h-full",
                       item.status === "processing" &&
-                        "bg-linear-to-r from-neon-cyan to-electric-violet",
+                      "bg-linear-to-r from-neon-cyan to-electric-violet",
                       item.status === "error" && "bg-danger-red",
                       item.status === "cancelled" && "bg-warning-amber",
                     )}
@@ -328,6 +330,9 @@ export const FileRow = memo(function FileRow({
                     }}
                     mediaType={item.mediaType}
                     mode="local"
+                    originalVideoFormats={item.mediaType === "video" && originalFormat ? [originalFormat] : undefined}
+                    originalImageFormats={item.mediaType === "image" && originalFormat ? [originalFormat] : undefined}
+                    originalAudioFormats={item.mediaType === "audio" && originalFormat ? [originalFormat] : undefined}
                   />
                   {hasOverride && (
                     <button

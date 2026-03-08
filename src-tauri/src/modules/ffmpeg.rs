@@ -107,22 +107,7 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
         builder = builder.filter_complex(filter);
     }
 
-    let audio_bitrate = if config.quality_value <= 23 {
-        "320k".to_string()
-    } else if config.quality_value <= 35 {
-        "192k".to_string()
-    } else {
-        "128k".to_string()
-    };
-
-    let x264_preset = if config.quality_value <= 23 {
-        "slow"
-    } else if config.quality_value <= 35 {
-        "medium"
-    } else {
-        "fast"
-    };
-
+    let audio_bitrate = "192k";
     match &config.output_format {
         OutputFormat::Video(VideoFormat::Webm) => {
             builder = builder.arg("-c:v", "libvpx-vp9");
@@ -145,7 +130,7 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
 
             builder = builder
                 .arg("-deadline", "good")
-                .arg("-cpu-used", "2")
+                .arg("-cpu-used", "0")
                 .arg("-row-mt", "1")
                 .arg("-pix_fmt", "yuv420p");
         }
@@ -156,7 +141,7 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
             }
             builder = builder
                 .arg("-crf", &config.quality_value.to_string())
-                .arg("-preset", x264_preset)
+                .arg("-preset", &config.video_preset)
                 .arg("-pix_fmt", "yuv420p");
             if matches!(v, VideoFormat::Mp4 | VideoFormat::Mov) {
                 builder = builder.arg("-movflags", "+faststart");
@@ -237,10 +222,7 @@ pub fn build_image_args(config: &ConversionConfig) -> Vec<OsString> {
             builder = builder.arg("-q:v", &config.quality_value.max(2).min(31).to_string());
         }
         OutputFormat::Image(ImageFormat::Webp) => {
-            builder = builder.arg(
-                "-quality",
-                &config.quality_value.max(20).min(92).to_string(),
-            );
+            builder = builder.arg("-quality", &config.quality_value.to_string());
             builder = builder
                 .arg("-preset", "photo")
                 .arg("-compression_level", "6");
@@ -299,7 +281,8 @@ pub fn build_thumbnail_args(input_path: &Path, output_path: &Path) -> Vec<OsStri
         .arg("-ss", "00:00:01")
         .input(input_path)
         .arg("-vframes", "1")
-        .filter_complex("scale=120:-1".to_string())
+        .arg("-q:v", "5")
+        .filter_complex("scale=240:-1".to_string())
         .overwrite(true)
         .output(output_path)
         .build()
@@ -309,7 +292,8 @@ pub fn build_image_thumbnail_args(input_path: &Path, output_path: &Path) -> Vec<
     FFmpegCommandBuilder::new()
         .input(input_path)
         .arg("-vframes", "1")
-        .filter_complex("scale=120:-1".to_string())
+        .arg("-q:v", "5")
+        .filter_complex("scale=240:-1".to_string())
         .overwrite(true)
         .output(output_path)
         .build()

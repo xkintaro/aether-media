@@ -31,6 +31,9 @@ export function Sidebar() {
     hasVideo,
     hasImage,
     hasAudio,
+    originalVideoFormats,
+    originalImageFormats,
+    originalAudioFormats,
     errorCount,
     hasAnyPendingOrCancelled,
     totalProcessable,
@@ -41,16 +44,31 @@ export function Sidebar() {
       image = false,
       audio = false;
     let cancelled = 0;
+    const videoFormats = new Set<string>();
+    const imageFormats = new Set<string>();
+    const audioFormats = new Set<string>();
+
     for (const item of items) {
-      if (item.mediaType === "video") video = true;
-      else if (item.mediaType === "image") image = true;
-      else if (item.mediaType === "audio") audio = true;
+      const ext = item.inputPath.split(".").pop()?.toLowerCase();
+      if (item.mediaType === "video") {
+        video = true;
+        if (ext) videoFormats.add(ext);
+      } else if (item.mediaType === "image") {
+        image = true;
+        if (ext) imageFormats.add(ext === "jpeg" ? "jpg" : ext);
+      } else if (item.mediaType === "audio") {
+        audio = true;
+        if (ext) audioFormats.add(ext);
+      }
       if (item.status === "cancelled") cancelled++;
     }
     return {
       hasVideo: video,
       hasImage: image,
       hasAudio: audio,
+      originalVideoFormats: Array.from(videoFormats),
+      originalImageFormats: Array.from(imageFormats),
+      originalAudioFormats: Array.from(audioFormats),
       pendingCount: stats.pending,
       errorCount: stats.error,
       hasAnyPendingOrCancelled: stats.pending > 0 || cancelled > 0,
@@ -173,6 +191,9 @@ export function Sidebar() {
             hasVideo={hasVideo}
             hasImage={hasImage}
             hasAudio={hasAudio}
+            originalVideoFormats={originalVideoFormats}
+            originalImageFormats={originalImageFormats}
+            originalAudioFormats={originalAudioFormats}
             mode="global"
             showOutputDir={true}
             outputDirectory={outputDirectory}

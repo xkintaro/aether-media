@@ -156,6 +156,7 @@ pub struct ConversionRequest {
     #[serde(default = "default_processing_enabled")]
     pub processing_enabled: bool,
     pub max_bitrate: Option<u64>,
+    pub video_preset: Option<String>,
 }
 
 fn default_processing_enabled() -> bool {
@@ -173,6 +174,7 @@ pub struct ConversionConfig {
     pub strip_metadata: bool,
     pub conflict_mode: String,
     pub max_bitrate: Option<u64>,
+    pub video_preset: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

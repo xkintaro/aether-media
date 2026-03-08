@@ -52,6 +52,9 @@ export interface ConversionSettings {
   videoQuality: number;
   imageQuality: number;
   audioQuality: number;
+  dynamicVideoQuality: Record<string, number>;
+  dynamicImageQuality: Record<string, number>;
+  dynamicAudioQuality: Record<string, number>;
   resizeEnabled: boolean;
   resizeWidth: number;
   resizeHeight: number;
@@ -64,6 +67,7 @@ export interface ConversionSettings {
   conflictMode: ConflictMode;
   processingEnabled: boolean;
   maxBitrate: number | null;
+  videoPreset: string;
 }
 
 export type ThumbnailStatus = "pending" | "loading" | "loaded" | "error";
@@ -203,16 +207,16 @@ export interface FormatQualityInfo {
 }
 
 export const FORMAT_QUALITY_CONFIG: Record<string, FormatQualityInfo> = {
-  // Video formats
+  // Video
   mp4: { min: 18, max: 51, default: 23, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
   mkv: { min: 18, max: 51, default: 23, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
   mov: { min: 18, max: 51, default: 23, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
   webm: { min: 24, max: 63, default: 31, step: 1, label: "CRF", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
-  // Image formats
+  // Image
   jpg: { min: 2, max: 31, default: 5, step: 1, label: "Quality", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
-  webp: { min: 20, max: 92, default: 75, step: 1, label: "Quality", unit: "", description: "Higher = higher quality", lowerIsBetter: false },
+  webp: { min: 1, max: 100, default: 80, step: 1, label: "Quality", unit: "", description: "Higher = higher quality", lowerIsBetter: false },
   png: { min: 0, max: 0, default: 0, step: 0, label: "Lossless", unit: "", description: "No quality setting needed", lowerIsBetter: false, isLossless: true },
-  // Audio formats
+  // Audio
   mp3: { min: 0, max: 9, default: 2, step: 1, label: "VBR Quality", unit: "", description: "Lower = higher quality", lowerIsBetter: true },
   aac: { min: 128, max: 320, default: 192, step: 8, label: "Bitrate", unit: "kbps", description: "Higher = higher quality", lowerIsBetter: false },
   m4a: { min: 128, max: 320, default: 192, step: 8, label: "Bitrate", unit: "kbps", description: "Higher = higher quality", lowerIsBetter: false },
@@ -231,7 +235,10 @@ export const DEFAULT_SETTINGS: ConversionSettings = {
   audioFormat: null,
   videoQuality: 23,
   imageQuality: 5,
-  audioQuality: 192,
+  audioQuality: 2,
+  dynamicVideoQuality: {},
+  dynamicImageQuality: {},
+  dynamicAudioQuality: {},
   resizeEnabled: false,
   resizeWidth: 1920,
   resizeHeight: 1080,
@@ -246,4 +253,5 @@ export const DEFAULT_SETTINGS: ConversionSettings = {
   conflictMode: "skip",
   processingEnabled: true,
   maxBitrate: null,
+  videoPreset: "medium",
 };

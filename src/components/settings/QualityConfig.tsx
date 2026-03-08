@@ -1,4 +1,5 @@
-import { Sparkles, Info } from "lucide-react";
+import { Info, Sparkles } from "lucide-react";
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { FormatQualityInfo } from "@/types";
 import { getQualityConfigForFormat } from "@/types";
@@ -46,14 +47,20 @@ export function QualityConfig({
                 </label>
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-graphite border border-border-subtle">
                     <Info className="w-3.5 h-3.5 text-plasma-pink shrink-0" />
-                    <span className="text-xs text-smoke">
-                        <span className="font-medium text-plasma-pink">{format.toUpperCase()}</span>
-                        {" — Lossless format"}
+                    <span className="text-xs text-ash">
+                        <span className="font-medium text-plasma-pink mr-1">{format.toUpperCase()}</span>
+                        {" Lossless format"}
                     </span>
                 </div>
             </div>
         );
     }
+
+    useEffect(() => {
+        if (value < config.min || value > config.max) {
+            onChange(config.default);
+        }
+    }, [value, config, onChange]);
 
     const displayValue = getDisplayValue(value, config);
     const sliderValue = config.lowerIsBetter ? config.max - value + config.min : value;
@@ -63,8 +70,6 @@ export function QualityConfig({
         const actual = config.lowerIsBetter ? config.max - raw + config.min : raw;
         onChange(actual);
     };
-
-    const qualityLevel = getQualityLevel(value, config);
 
     return (
         <div className="space-y-2">
@@ -76,7 +81,7 @@ export function QualityConfig({
                         {format.toUpperCase()}
                     </span>
                 </span>
-                <span className="font-mono text-neon-cyan">
+                <span className={cn("font-mono", iconColor)}>
                     {config.label}: {displayValue}
                 </span>
             </label>
@@ -87,22 +92,15 @@ export function QualityConfig({
                 step={config.step}
                 value={sliderValue}
                 onChange={handleSliderChange}
-                className="w-full h-1.5 bg-slate rounded-full appearance-none cursor-pointer accent-neon-cyan"
+                className={cn(
+                    "w-full h-1.5 bg-slate rounded-full appearance-none cursor-pointer",
+                    mediaType === "video" && "accent-electric-violet",
+                    mediaType === "image" && "accent-plasma-pink",
+                    mediaType === "audio" && "accent-ember-orange"
+                )}
             />
             <div className="flex justify-between text-[10px] text-ash font-mono">
                 <span>Low Quality</span>
-
-                <span
-                    className={cn(
-                        "px-1.5 py-0.5 rounded",
-                        qualityLevel === "high" && "text-success-green",
-                        qualityLevel === "medium" && "text-warning-amber",
-                        qualityLevel === "low" && "text-error-red",
-                    )}
-                >
-                    {config.description}
-                </span>
-
                 <span>High Quality</span>
             </div>
         </div>
@@ -111,25 +109,7 @@ export function QualityConfig({
 
 function getDisplayValue(value: number, config: FormatQualityInfo): string {
     if (config.unit) {
-        return `${value} ${config.unit}`;
+        return `${value} ${config.unit} `;
     }
-    return `${value}`;
-}
-
-function getQualityLevel(
-    value: number,
-    config: FormatQualityInfo,
-): "high" | "medium" | "low" {
-    const range = config.max - config.min;
-    const normalized = (value - config.min) / range;
-
-    if (config.lowerIsBetter) {
-        if (normalized <= 0.33) return "high";
-        if (normalized <= 0.66) return "medium";
-        return "low";
-    } else {
-        if (normalized >= 0.66) return "high";
-        if (normalized >= 0.33) return "medium";
-        return "low";
-    }
+    return `${value} `;
 }
