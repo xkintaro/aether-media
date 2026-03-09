@@ -1,7 +1,7 @@
 ﻿import { memo, useCallback, useRef, useState, useMemo, useEffect } from "react";
 import { Trash2, Square, CheckSquare, RotateCcw } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { cn, computeQueueStats } from "@/lib/utils";
+import { cn, computeQueueStats, formatFileSize } from "@/lib/utils";
 import { useQueueStore } from "@/store/queueStore";
 import { useAppSettingsStore } from "@/store/appSettingsStore";
 import { useToastStore } from "@/store/toastStore";
@@ -294,58 +294,76 @@ export const FileTable = memo(function FileTable() {
               <>
                 {stats.success > 0 && (
                   <>
-                    <div className="text-ash/60">
+                    <div className="relative group cursor-help text-ash/60">
                       <span className="text-success-green/80">
                         {stats.success}
                       </span>
                       <span className="ml-1.5 hidden sm:inline">SUCCESS</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                        {formatFileSize(stats.successSize)}
+                      </div>
                     </div>
                     <div className="w-px h-3 bg-border-subtle" />
                   </>
                 )}
                 {stats.cancelled > 0 && (
                   <>
-                    <div className="text-ash/60">
+                    <div className="relative group cursor-help text-ash/60">
                       <span className="text-yellow-500/80">
                         {stats.cancelled}
                       </span>
                       <span className="ml-1.5 hidden sm:inline">CANCELLED</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                        {formatFileSize(stats.cancelledSize)}
+                      </div>
                     </div>
                     <div className="w-px h-3 bg-border-subtle" />
                   </>
                 )}
                 {stats.error > 0 && (
                   <>
-                    <div className="text-ash/60">
+                    <div className="relative group cursor-help text-ash/60">
                       <span className="text-danger-red/80">{stats.error}</span>
                       <span className="ml-1.5 hidden sm:inline">ERRORS</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                        {formatFileSize(stats.errorSize)}
+                      </div>
                     </div>
                     <div className="w-px h-3 bg-border-subtle" />
                   </>
                 )}
                 {stats.processed > 0 && (
                   <>
-                    <div className="text-ash/60">
+                    <div className="relative group cursor-help text-ash/60">
                       <span className="text-snow/90">{stats.processed}</span>
                       <span className="ml-1.5 hidden sm:inline">PROCESSED</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                        {formatFileSize(stats.processedSize)}
+                      </div>
                     </div>
                     <div className="w-px h-3 bg-border-subtle" />
                   </>
                 )}
                 {stats.remaining > 0 && (
                   <>
-                    <div className="text-ash/60">
+                    <div className="relative group cursor-help text-ash/60">
                       <span className="text-electric-violet/80">
                         {stats.remaining}
                       </span>
                       <span className="ml-1.5 hidden sm:inline">REMAINING</span>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                        {formatFileSize(stats.remainingSize)}
+                      </div>
                     </div>
                     <div className="w-px h-3 bg-border-subtle" />
                   </>
                 )}
-                <div className="text-ash/60">
+                <div className="relative group cursor-help text-ash/60">
                   <span>{stats.total}</span>
                   <span className="ml-1.5 hidden sm:inline">TOTAL</span>
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-5000 shadow-xl">
+                    {formatFileSize(stats.totalSize)}
+                  </div>
                 </div>
               </>
             )}

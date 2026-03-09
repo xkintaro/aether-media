@@ -130,7 +130,7 @@ pub fn build_video_args(config: &ConversionConfig) -> Vec<OsString> {
 
             builder = builder
                 .arg("-deadline", "good")
-                .arg("-cpu-used", "0")
+                .arg("-cpu-used", "2")
                 .arg("-row-mt", "1")
                 .arg("-pix_fmt", "yuv420p");
         }

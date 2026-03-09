@@ -59,30 +59,50 @@ export interface QueueStats {
   processed: number;
   remaining: number;
   total: number;
+  successSize: number;
+  cancelledSize: number;
+  errorSize: number;
+  pendingSize: number;
+  processingSize: number;
+  processedSize: number;
+  remainingSize: number;
+  totalSize: number;
 }
 
-export function computeQueueStats(items: { status: string }[]): QueueStats {
+export function computeQueueStats(items: { status: string; fileSize?: number }[]): QueueStats {
   let success = 0,
     cancelled = 0,
     error = 0,
     pending = 0,
-    processing = 0;
+    processing = 0,
+    successSize = 0,
+    cancelledSize = 0,
+    errorSize = 0,
+    pendingSize = 0,
+    processingSize = 0;
+
   for (const item of items) {
+    const size = item.fileSize || 0;
     switch (item.status) {
       case "completed":
         success++;
+        successSize += size;
         break;
       case "cancelled":
         cancelled++;
+        cancelledSize += size;
         break;
       case "error":
         error++;
+        errorSize += size;
         break;
       case "pending":
         pending++;
+        pendingSize += size;
         break;
       case "processing":
         processing++;
+        processingSize += size;
         break;
     }
   }
@@ -95,5 +115,13 @@ export function computeQueueStats(items: { status: string }[]): QueueStats {
     processed: success + cancelled + error,
     remaining: pending + processing,
     total: items.length,
+    successSize,
+    cancelledSize,
+    errorSize,
+    pendingSize,
+    processingSize,
+    processedSize: successSize + cancelledSize + errorSize,
+    remainingSize: pendingSize + processingSize,
+    totalSize: successSize + cancelledSize + errorSize + pendingSize + processingSize,
   };
 }
