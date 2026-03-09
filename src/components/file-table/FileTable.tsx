@@ -299,7 +299,7 @@ export const FileTable = memo(function FileTable() {
                         {stats.success}
                       </span>
                       <span className="ml-1.5 hidden sm:inline">SUCCESS</span>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                         {formatFileSize(stats.successSize)}
                       </div>
                     </div>
@@ -313,7 +313,7 @@ export const FileTable = memo(function FileTable() {
                         {stats.cancelled}
                       </span>
                       <span className="ml-1.5 hidden sm:inline">CANCELLED</span>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                         {formatFileSize(stats.cancelledSize)}
                       </div>
                     </div>
@@ -325,7 +325,7 @@ export const FileTable = memo(function FileTable() {
                     <div className="relative group cursor-help text-ash/60">
                       <span className="text-danger-red/80">{stats.error}</span>
                       <span className="ml-1.5 hidden sm:inline">ERRORS</span>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                         {formatFileSize(stats.errorSize)}
                       </div>
                     </div>
@@ -337,7 +337,7 @@ export const FileTable = memo(function FileTable() {
                     <div className="relative group cursor-help text-ash/60">
                       <span className="text-snow/90">{stats.processed}</span>
                       <span className="ml-1.5 hidden sm:inline">PROCESSED</span>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                         {formatFileSize(stats.processedSize)}
                       </div>
                     </div>
@@ -351,7 +351,7 @@ export const FileTable = memo(function FileTable() {
                         {stats.remaining}
                       </span>
                       <span className="ml-1.5 hidden sm:inline">REMAINING</span>
-                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                      <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                         {formatFileSize(stats.remainingSize)}
                       </div>
                     </div>
@@ -361,7 +361,7 @@ export const FileTable = memo(function FileTable() {
                 <div className="relative group cursor-help text-ash/60">
                   <span>{stats.total}</span>
                   <span className="ml-1.5 hidden sm:inline">TOTAL</span>
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-5000 shadow-xl">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-5000 shadow-xl">
                     {formatFileSize(stats.totalSize)}
                   </div>
                 </div>

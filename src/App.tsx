@@ -411,7 +411,7 @@ function App() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-hidden">
             <FileTable />
           </div>
         </main>
