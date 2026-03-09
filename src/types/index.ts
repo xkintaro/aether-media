@@ -225,7 +225,13 @@ export const FORMAT_QUALITY_CONFIG: Record<string, FormatQualityInfo> = {
 
 export function getQualityConfigForFormat(format: string | null): FormatQualityInfo | null {
   if (!format) return null;
-  return FORMAT_QUALITY_CONFIG[format.toLowerCase()] || null;
+  const lower = format.toLowerCase();
+  if (FORMAT_QUALITY_CONFIG[lower]) {
+    return FORMAT_QUALITY_CONFIG[lower];
+  }
+  if (lower === 'jpeg') return FORMAT_QUALITY_CONFIG['jpg'];
+
+  return null;
 }
 
 export const DEFAULT_SETTINGS: ConversionSettings = {
