@@ -32,8 +32,9 @@ export const SPRING_CONFIG = {
   STIFF: { type: "spring", stiffness: 500, damping: 30 },
 } as const;
 
-export const SCROLL_VELOCITY_THRESHOLD = 2.5;
-export const SCROLL_DEBOUNCE_MS = 1000;
+export const SCROLL_VELOCITY_THRESHOLD = 6;
+export const SCROLL_DEBOUNCE_MS = 400;
+export const FAST_SCROLL_STREAK = 3;
 
 export const TAURI_COMMANDS = {
   GET_FILES_INFO_BATCH: "get_files_info_batch",

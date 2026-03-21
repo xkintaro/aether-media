@@ -1,4 +1,5 @@
-﻿import { memo, useCallback, useRef, useState, useMemo, useEffect } from "react";
+import { memo, useCallback, useRef, useState, useMemo, useEffect } from "react";
+import type { ProcessStatus } from "@/types";
 import { Trash2, Square, CheckSquare, RotateCcw } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { cn, computeQueueStats, formatFileSize } from "@/lib/utils";
@@ -17,6 +18,7 @@ import {
   VIRTUAL_OVERSCAN,
   SCROLL_VELOCITY_THRESHOLD,
   SCROLL_DEBOUNCE_MS,
+  FAST_SCROLL_STREAK,
   TAURI_COMMANDS,
 } from "@/lib/constants";
 
@@ -84,21 +86,32 @@ export const FileTable = memo(function FileTable() {
     hasPersistedQueue && !sessionRestoreHandled && !autoRestoreSession;
   const parentRef = useRef<HTMLDivElement>(null);
   const [isRetryDialogOpen, setIsRetryDialogOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<ProcessStatus | null>(null);
+
+  const filteredItems = useMemo(() => {
+    if (!statusFilter) return items;
+    return items.filter((item) => item.status === statusFilter);
+  }, [items, statusFilter]);
+
+  const toggleFilter = useCallback((status: ProcessStatus) => {
+    setStatusFilter((prev) => (prev === status ? null : status));
+  }, []);
 
   const hasItems = items.length > 0;
+  const hasFilteredItems = filteredItems.length > 0;
   const allSelected = hasItems && selectedIds.size === items.length;
   const someSelected = selectedIds.size > 0 && !allSelected;
   const selectedCount = selectedIds.size;
 
   const virtualizer = useVirtualizer({
-    count: items.length,
+    count: filteredItems.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
-      const item = items[index];
+      const item = filteredItems[index];
       return item?.id === expandedId ? EXPANDED_ROW_HEIGHT : ROW_HEIGHT;
     },
     overscan: VIRTUAL_OVERSCAN,
-    getItemKey: (index) => items[index].id,
+    getItemKey: (index) => filteredItems[index].id,
     measureElement: (element) =>
       element?.getBoundingClientRect().height ?? ROW_HEIGHT,
   });
@@ -106,6 +119,7 @@ export const FileTable = memo(function FileTable() {
   const [isFastScrolling, setIsFastScrolling] = useState(false);
   const lastScrollRef = useRef({ top: 0, time: 0 });
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fastStreakRef = useRef(0);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const handlePreview = useCallback((path: string) => {
@@ -126,12 +140,19 @@ export const FileTable = memo(function FileTable() {
       const velocity = distance / timeDelta;
 
       if (velocity > SCROLL_VELOCITY_THRESHOLD) {
-        if (!isFastScrolling) setIsFastScrolling(true);
-        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+        fastStreakRef.current += 1;
 
+        if (fastStreakRef.current >= FAST_SCROLL_STREAK && !isFastScrolling) {
+          setIsFastScrolling(true);
+        }
+
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
         scrollTimeoutRef.current = setTimeout(() => {
           setIsFastScrolling(false);
+          fastStreakRef.current = 0;
         }, SCROLL_DEBOUNCE_MS);
+      } else {
+        fastStreakRef.current = 0;
       }
       lastScrollRef.current = { top: currentTop, time: currentTime };
     }
@@ -289,82 +310,101 @@ export const FileTable = memo(function FileTable() {
             )}
           </div>
 
-          <div className="flex items-center gap-4 text-[10px] sm:text-xs font-mono tracking-wide uppercase select-none">
+          <div className="flex items-center gap-1.5 text-[10px] sm:text-xs font-mono tracking-wide uppercase select-none">
             {stats && (
               <>
                 {stats.success > 0 && (
-                  <>
-                    <div className="relative group cursor-help text-ash/60">
-                      <span className="text-success-green/80">
-                        {stats.success}
-                      </span>
-                      <span className="ml-1.5 hidden sm:inline">SUCCESS</span>
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-                        {formatFileSize(stats.successSize)}
-                      </div>
+                  <button
+                    onClick={() => toggleFilter("completed")}
+                    className={cn(
+                      "relative group flex items-center gap-1.5 px-2 py-1 rounded-md transition-all",
+                      statusFilter === "completed"
+                        ? "bg-success-green/20 text-success-green ring-1 ring-success-green/40"
+                        : "text-ash/60 hover:text-ash hover:bg-slate/40",
+                    )}
+                  >
+                    <span className={cn(statusFilter === "completed" ? "text-success-green" : "text-success-green/80")}>
+                      {stats.success}
+                    </span>
+                    <span className="hidden sm:inline">SUCCESS</span>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                      {formatFileSize(stats.successSize)}
                     </div>
-                    <div className="w-px h-3 bg-border-subtle" />
-                  </>
+                  </button>
                 )}
                 {stats.cancelled > 0 && (
-                  <>
-                    <div className="relative group cursor-help text-ash/60">
-                      <span className="text-yellow-500/80">
-                        {stats.cancelled}
-                      </span>
-                      <span className="ml-1.5 hidden sm:inline">CANCELLED</span>
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-                        {formatFileSize(stats.cancelledSize)}
-                      </div>
+                  <button
+                    onClick={() => toggleFilter("cancelled")}
+                    className={cn(
+                      "relative group flex items-center gap-1.5 px-2 py-1 rounded-md transition-all",
+                      statusFilter === "cancelled"
+                        ? "bg-yellow-500/20 text-yellow-500 ring-1 ring-yellow-500/40"
+                        : "text-ash/60 hover:text-ash hover:bg-slate/40",
+                    )}
+                  >
+                    <span className={cn(statusFilter === "cancelled" ? "text-yellow-500" : "text-yellow-500/80")}>
+                      {stats.cancelled}
+                    </span>
+                    <span className="hidden sm:inline">CANCELLED</span>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                      {formatFileSize(stats.cancelledSize)}
                     </div>
-                    <div className="w-px h-3 bg-border-subtle" />
-                  </>
+                  </button>
                 )}
                 {stats.error > 0 && (
-                  <>
-                    <div className="relative group cursor-help text-ash/60">
-                      <span className="text-danger-red/80">{stats.error}</span>
-                      <span className="ml-1.5 hidden sm:inline">ERRORS</span>
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-                        {formatFileSize(stats.errorSize)}
-                      </div>
+                  <button
+                    onClick={() => toggleFilter("error")}
+                    className={cn(
+                      "relative group flex items-center gap-1.5 px-2 py-1 rounded-md transition-all",
+                      statusFilter === "error"
+                        ? "bg-danger-red/20 text-danger-red ring-1 ring-danger-red/40"
+                        : "text-ash/60 hover:text-ash hover:bg-slate/40",
+                    )}
+                  >
+                    <span className={cn(statusFilter === "error" ? "text-danger-red" : "text-danger-red/80")}>
+                      {stats.error}
+                    </span>
+                    <span className="hidden sm:inline">ERRORS</span>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                      {formatFileSize(stats.errorSize)}
                     </div>
-                    <div className="w-px h-3 bg-border-subtle" />
-                  </>
-                )}
-                {stats.processed > 0 && (
-                  <>
-                    <div className="relative group cursor-help text-ash/60">
-                      <span className="text-snow/90">{stats.processed}</span>
-                      <span className="ml-1.5 hidden sm:inline">PROCESSED</span>
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-                        {formatFileSize(stats.processedSize)}
-                      </div>
-                    </div>
-                    <div className="w-px h-3 bg-border-subtle" />
-                  </>
+                  </button>
                 )}
                 {stats.remaining > 0 && (
-                  <>
-                    <div className="relative group cursor-help text-ash/60">
-                      <span className="text-electric-violet/80">
-                        {stats.remaining}
-                      </span>
-                      <span className="ml-1.5 hidden sm:inline">REMAINING</span>
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
-                        {formatFileSize(stats.remainingSize)}
-                      </div>
+                  <button
+                    onClick={() => toggleFilter("pending")}
+                    className={cn(
+                      "relative group flex items-center gap-1.5 px-2 py-1 rounded-md transition-all",
+                      statusFilter === "pending"
+                        ? "bg-electric-violet/20 text-electric-violet ring-1 ring-electric-violet/40"
+                        : "text-ash/60 hover:text-ash hover:bg-slate/40",
+                    )}
+                  >
+                    <span className={cn(statusFilter === "pending" ? "text-electric-violet" : "text-electric-violet/80")}>
+                      {stats.remaining}
+                    </span>
+                    <span className="hidden sm:inline">REMAINING</span>
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
+                      {formatFileSize(stats.remainingSize)}
                     </div>
-                    <div className="w-px h-3 bg-border-subtle" />
-                  </>
+                  </button>
                 )}
-                <div className="relative group cursor-help text-ash/60">
+                <div className="w-px h-3 bg-border-subtle mx-0.5" />
+                <button
+                  onClick={() => setStatusFilter(null)}
+                  className={cn(
+                    "relative group flex items-center gap-1.5 px-2 py-1 rounded-md transition-all",
+                    statusFilter === null
+                      ? "bg-slate/60 text-snow ring-1 ring-ash/30"
+                      : "text-ash/60 hover:text-ash hover:bg-slate/40",
+                  )}
+                >
                   <span>{stats.total}</span>
-                  <span className="ml-1.5 hidden sm:inline">TOTAL</span>
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-5000 shadow-xl">
+                  <span className="hidden sm:inline">TOTAL</span>
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 px-2 py-1 bg-graphite border border-border-subtle rounded-md text-snow text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-xl">
                     {formatFileSize(stats.totalSize)}
                   </div>
-                </div>
+                </button>
               </>
             )}
           </div>
@@ -377,39 +417,45 @@ export const FileTable = memo(function FileTable() {
           onScroll={handleScroll}
           className="flex-1 overflow-auto"
         >
-          <div
-            style={{
-              height: `${virtualizer.getTotalSize()}px`,
-              width: "100%",
-              position: "relative",
-            }}
-          >
-            {virtualItems.map((virtualRow) => {
-              const item = items[virtualRow.index];
-              if (!item) return null;
+          {hasFilteredItems ? (
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: "100%",
+                position: "relative",
+              }}
+            >
+              {virtualItems.map((virtualRow) => {
+                const item = filteredItems[virtualRow.index];
+                if (!item) return null;
 
-              return (
-                <VirtualRow
-                  key={virtualRow.key}
-                  index={virtualRow.index}
-                  start={virtualRow.start}
-                  measureElement={virtualizer.measureElement}
-                >
-                  {isFastScrolling && item.id !== expandedId ? (
-                    <FileRowSkeleton />
-                  ) : (
-                    <FileRow
-                      item={item}
-                      isSelected={selectedIds.has(item.id)}
-                      onRemove={handleRemove}
-                      onCancel={handleCancel}
-                      onPreview={handlePreview}
-                    />
-                  )}
-                </VirtualRow>
-              );
-            })}
-          </div>
+                return (
+                  <VirtualRow
+                    key={virtualRow.key}
+                    index={virtualRow.index}
+                    start={virtualRow.start}
+                    measureElement={virtualizer.measureElement}
+                  >
+                    {isFastScrolling && item.id !== expandedId ? (
+                      <FileRowSkeleton />
+                    ) : (
+                      <FileRow
+                        item={item}
+                        isSelected={selectedIds.has(item.id)}
+                        onRemove={handleRemove}
+                        onCancel={handleCancel}
+                        onPreview={handlePreview}
+                      />
+                    )}
+                  </VirtualRow>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center py-16 text-ash/50 text-sm">
+              No files matching this filter
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex-1 flex items-center justify-center">
