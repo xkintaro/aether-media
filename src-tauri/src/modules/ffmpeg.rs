@@ -1,6 +1,6 @@
 use crate::types::{
-    AudioFormat, BackgroundColor, ConversionConfig, ImageFormat, OutputFormat, ResizeConfig,
-    ResizeMode, VideoFormat,
+    AudioFormat, BackgroundColor, ConversionConfig, OutputFormat, ResizeConfig, ResizeMode,
+    VideoFormat,
 };
 use std::ffi::OsString;
 use std::path::Path;
@@ -204,37 +204,6 @@ pub fn build_audio_extract_args(config: &ConversionConfig) -> Vec<OsString> {
     builder.output(&config.output_path).build()
 }
 
-pub fn build_image_args(config: &ConversionConfig) -> Vec<OsString> {
-    let mut builder = FFmpegCommandBuilder::new()
-        .input(&config.input_path)
-        .overwrite(config.conflict_mode == "overwrite");
-
-    let mut filters: Vec<String> = Vec::new();
-    if let Some(ref resize) = config.resize_config {
-        filters.push(build_resize_filter(resize, &config.output_format, false));
-    }
-    if !filters.is_empty() {
-        builder = builder.filter_complex(filters.join(","));
-    }
-
-    match &config.output_format {
-        OutputFormat::Image(ImageFormat::Jpg) => {
-            builder = builder.arg("-q:v", &config.quality_value.max(2).min(31).to_string());
-        }
-        OutputFormat::Image(ImageFormat::Webp) => {
-            builder = builder.arg("-quality", &config.quality_value.to_string());
-            builder = builder
-                .arg("-preset", "photo")
-                .arg("-compression_level", "6");
-        }
-        OutputFormat::Image(ImageFormat::Png) => {
-            builder = builder.arg("-compression_level", "9");
-        }
-        _ => {}
-    }
-    builder.output(&config.output_path).build()
-}
-
 fn build_resize_filter(
     resize: &ResizeConfig,
     output_format: &OutputFormat,
@@ -279,17 +248,6 @@ fn build_resize_filter(
 pub fn build_thumbnail_args(input_path: &Path, output_path: &Path) -> Vec<OsString> {
     FFmpegCommandBuilder::new()
         .arg("-ss", "00:00:01")
-        .input(input_path)
-        .arg("-vframes", "1")
-        .arg("-q:v", "5")
-        .filter_complex("scale=240:-1".to_string())
-        .overwrite(true)
-        .output(output_path)
-        .build()
-}
-
-pub fn build_image_thumbnail_args(input_path: &Path, output_path: &Path) -> Vec<OsString> {
-    FFmpegCommandBuilder::new()
         .input(input_path)
         .arg("-vframes", "1")
         .arg("-q:v", "5")

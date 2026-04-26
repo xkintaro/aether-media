@@ -1,4 +1,5 @@
 use crate::modules::ffmpeg;
+use crate::modules::imagemagick;
 use std::env;
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -16,7 +17,8 @@ pub fn get_video_thumbnail_args(input_path: &str, file_id: &str) -> (Vec<OsStrin
 
 pub fn get_image_thumbnail_args(input_path: &str, file_id: &str) -> (Vec<OsString>, PathBuf) {
     let output_path = get_thumbnail_path(file_id);
-    let args = ffmpeg::build_image_thumbnail_args(std::path::Path::new(input_path), &output_path);
+    let args =
+        imagemagick::build_image_thumbnail_args(std::path::Path::new(input_path), &output_path);
     (args, output_path)
 }
 
