@@ -6,6 +6,9 @@
   <img src="https://img.shields.io/badge/Dil-Türkçe-red?style=flat-square&logo=google-translate&logoColor=white" alt="Türkçe">
 </a>
 
+  <br />
+  <br />
+
 <div align="center">
   <img src="src/assets/logo.png" width="120" height="120" />
 
