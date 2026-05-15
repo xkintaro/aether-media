@@ -30,7 +30,7 @@
 
   <p>
     <a href="#features">Features</a> •
-    <a href="#tech">Tech Stack</a> •
+    <a href="#tech">Technologies</a> •
     <a href="#installation">Installation</a> •
     <a href="#project-structure">Project Structure</a> •
     <a href="#license">License</a> •
