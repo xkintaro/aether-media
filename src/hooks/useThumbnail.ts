@@ -99,7 +99,6 @@ export async function cleanupThumbnails(ids: string[]): Promise<void> {
   }
 }
 
-// Backward-compatible hook wrapper
 export function useThumbnail() {
   return {
     generateThumbnail,

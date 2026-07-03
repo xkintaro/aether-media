@@ -1,5 +1,5 @@
 use crate::error::ConversionError;
-use crate::modules::{ffmpeg, naming, thumbnail};
+use crate::modules::{ffmpeg, imagemagick, naming, thumbnail};
 use crate::state::AppState;
 use crate::types::{
     parse_output_format, ConversionConfig, ConversionRequest, ConversionResult, FileInfo,
@@ -19,9 +19,14 @@ const CREATE_NO_WINDOW: u32 = 0x08000000;
 use std::sync::OnceLock;
 
 static FFMPEG_PATH: OnceLock<PathBuf> = OnceLock::new();
+static MAGICK_PATH: OnceLock<PathBuf> = OnceLock::new();
 
-fn get_ffmpeg_path() -> Result<&'static Path, String> {
-    if let Some(path) = FFMPEG_PATH.get() {
+fn get_sidecar_path(
+    cache: &'static OnceLock<PathBuf>,
+    exe_names: &[&str],
+    tool_name: &str,
+) -> Result<&'static Path, String> {
+    if let Some(path) = cache.get() {
         return Ok(path.as_path());
     }
 
@@ -30,8 +35,6 @@ fn get_ffmpeg_path() -> Result<&'static Path, String> {
         .parent()
         .ok_or("Failed to get exe parent dir")?
         .to_path_buf();
-
-    let exe_names = vec!["ffmpeg-x86_64-pc-windows-msvc.exe", "ffmpeg.exe"];
 
     let try_paths = vec![
         exe_dir.clone(),
@@ -47,21 +50,37 @@ fn get_ffmpeg_path() -> Result<&'static Path, String> {
     let mut checked = Vec::new();
 
     for base in &try_paths {
-        for exe_name in &exe_names {
+        for exe_name in exe_names {
             let candidate = base.join(exe_name);
             checked.push(candidate.clone());
             if candidate.exists() {
                 let resolved = candidate.canonicalize().unwrap_or(candidate);
-                let _ = FFMPEG_PATH.set(resolved);
-                return Ok(FFMPEG_PATH.get().unwrap().as_path());
+                let _ = cache.set(resolved);
+                return Ok(cache.get().unwrap().as_path());
             }
         }
     }
 
     Err(format!(
-        "Could not find ffmpeg binary. Checked: {:?}",
-        checked
+        "Could not find {} binary. Checked: {:?}",
+        tool_name, checked
     ))
+}
+
+fn get_ffmpeg_path() -> Result<&'static Path, String> {
+    get_sidecar_path(
+        &FFMPEG_PATH,
+        &["ffmpeg-x86_64-pc-windows-msvc.exe", "ffmpeg.exe"],
+        "ffmpeg",
+    )
+}
+
+fn get_magick_path() -> Result<&'static Path, String> {
+    get_sidecar_path(
+        &MAGICK_PATH,
+        &["magick-x86_64-pc-windows-msvc.exe", "magick.exe"],
+        "ImageMagick",
+    )
 }
 
 #[tauri::command]
@@ -217,10 +236,15 @@ pub async fn convert_file(
             .unwrap_or_else(|| "medium".to_string()),
     };
 
+    if matches!(&output_format, OutputFormat::Image(_)) {
+        return convert_image_with_magick(&app, &state, &file_id, &config, &final_output_path)
+            .await;
+    }
+
     let args = match &output_format {
         OutputFormat::Video(_) => ffmpeg::build_video_args(&config),
         OutputFormat::Audio(_) => ffmpeg::build_audio_extract_args(&config),
-        OutputFormat::Image(_) => ffmpeg::build_image_args(&config),
+        OutputFormat::Image(_) => unreachable!("Image format is handled above"),
     };
 
     let sidecar_path = get_ffmpeg_path()?;
@@ -358,6 +382,129 @@ pub async fn convert_file(
     }
 }
 
+async fn convert_image_with_magick(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+    file_id: &str,
+    config: &ConversionConfig,
+    final_output_path: &Path,
+) -> Result<ConversionResult, String> {
+    let args = imagemagick::build_image_convert_args(config);
+    let sidecar_path = get_magick_path()?;
+
+    let mut cmd = Command::new(&sidecar_path);
+    cmd.args(&args);
+    cmd.stdout(Stdio::null());
+    cmd.stderr(Stdio::piped());
+
+    #[cfg(windows)]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Failed to spawn ImageMagick: {}", e))?;
+
+    let stderr = child.stderr.take();
+
+    state
+        .register_process(file_id.to_string(), child)
+        .await;
+
+    state
+        .register_output_path(file_id.to_string(), final_output_path.to_path_buf())
+        .await;
+
+    let _ = app.emit(
+        "conversion-progress",
+        ProgressEvent {
+            id: file_id.to_string(),
+            progress: 0,
+            status: ProcessStatus::Processing,
+            message: Some("Processing with ImageMagick...".to_string()),
+        },
+    );
+
+    let stderr_content = if let Some(stderr) = stderr {
+        let mut reader = BufReader::new(stderr).lines();
+        let mut lines = Vec::new();
+        while let Ok(Some(line)) = reader.next_line().await {
+            lines.push(line);
+        }
+        lines.join("\n")
+    } else {
+        String::new()
+    };
+
+    if let Some(mut child) = state.remove_process(file_id).await {
+        let status = child
+            .wait()
+            .await
+            .map_err(|e| format!("Failed to wait on ImageMagick: {}", e))?;
+
+        if status.success() {
+            state.remove_output_path(file_id).await;
+
+            let _ = app.emit(
+                "conversion-complete",
+                ConversionResult {
+                    id: file_id.to_string(),
+                    success: true,
+                    output_path: Some(final_output_path.to_path_buf()),
+                    error_message: None,
+                },
+            );
+            Ok(ConversionResult {
+                id: file_id.to_string(),
+                success: true,
+                output_path: Some(final_output_path.to_path_buf()),
+                error_message: None,
+            })
+        } else {
+            if let Some(partial_path) = state.remove_output_path(file_id).await {
+                if partial_path.exists() {
+                    let _ = tokio::fs::remove_file(&partial_path).await;
+                }
+            }
+
+            let err_msg = if stderr_content.contains("Permission denied") {
+                "Conversion failed: Permission denied writing to output.".to_string()
+            } else if stderr_content.contains("No space left on device") {
+                "Conversion failed: Disk full.".to_string()
+            } else if stderr_content.is_empty() {
+                format!("ImageMagick exited with code: {:?}", status.code())
+            } else {
+                format!(
+                    "ImageMagick exited with code: {:?}\n{}",
+                    status.code(),
+                    stderr_content
+                )
+            };
+
+            let _ = app.emit(
+                "conversion-complete",
+                ConversionResult {
+                    id: file_id.to_string(),
+                    success: false,
+                    output_path: None,
+                    error_message: Some(err_msg.clone()),
+                },
+            );
+            Err(err_msg)
+        }
+    } else {
+        let _ = app.emit(
+            "conversion-progress",
+            ProgressEvent {
+                id: file_id.to_string(),
+                progress: 0,
+                status: ProcessStatus::Cancelled,
+                message: Some("Cancelled by user".to_string()),
+            },
+        );
+        Err("Conversion cancelled".to_string())
+    }
+}
+
 fn calculate_output_path(
     input_path: &Path,
     output_format: &OutputFormat,
@@ -393,50 +540,73 @@ pub async fn generate_thumbnail(
 }
 
 async fn generate_single_thumbnail(request: ThumbnailRequest) -> Result<ThumbnailResult, String> {
-    let (args, output_path) = match request.media_type {
+    match request.media_type {
         MediaType::Video => {
-            thumbnail::get_video_thumbnail_args(&request.input_path.to_string_lossy(), &request.id)
+            let (args, output_path) = thumbnail::get_video_thumbnail_args(
+                &request.input_path.to_string_lossy(),
+                &request.id,
+            );
+            let sidecar_path = get_ffmpeg_path()?;
+            let mut cmd = Command::new(&sidecar_path);
+            cmd.args(&args);
+            #[cfg(windows)]
+            cmd.creation_flags(CREATE_NO_WINDOW);
+            let output = cmd
+                .output()
+                .await
+                .map_err(|e| format!("Failed to generate thumbnail: {}", e))?;
+            if output.status.success() && output_path.exists() {
+                Ok(ThumbnailResult {
+                    id: request.id,
+                    thumbnail_path: Some(output_path),
+                    success: true,
+                    error_message: None,
+                })
+            } else {
+                Ok(ThumbnailResult {
+                    id: request.id,
+                    thumbnail_path: None,
+                    success: false,
+                    error_message: Some("FFmpeg thumbnail generation failed".to_string()),
+                })
+            }
         }
         MediaType::Image => {
-            thumbnail::get_image_thumbnail_args(&request.input_path.to_string_lossy(), &request.id)
+            let (args, output_path) = thumbnail::get_image_thumbnail_args(
+                &request.input_path.to_string_lossy(),
+                &request.id,
+            );
+            let sidecar_path = get_magick_path()?;
+            let mut cmd = Command::new(&sidecar_path);
+            cmd.args(&args);
+            #[cfg(windows)]
+            cmd.creation_flags(CREATE_NO_WINDOW);
+            let output = cmd
+                .output()
+                .await
+                .map_err(|e| format!("Failed to generate thumbnail: {}", e))?;
+            if output.status.success() && output_path.exists() {
+                Ok(ThumbnailResult {
+                    id: request.id,
+                    thumbnail_path: Some(output_path),
+                    success: true,
+                    error_message: None,
+                })
+            } else {
+                Ok(ThumbnailResult {
+                    id: request.id,
+                    thumbnail_path: None,
+                    success: false,
+                    error_message: Some("ImageMagick thumbnail generation failed".to_string()),
+                })
+            }
         }
-        MediaType::Audio => {
-            return Ok(ThumbnailResult {
-                id: request.id,
-                thumbnail_path: None,
-                success: true,
-                error_message: None,
-            });
-        }
-    };
-
-    let sidecar_path = get_ffmpeg_path()?;
-
-    let mut cmd = Command::new(&sidecar_path);
-    cmd.args(&args);
-
-    #[cfg(windows)]
-    cmd.creation_flags(CREATE_NO_WINDOW);
-
-    let output = cmd
-        .output()
-        .await
-        .map_err(|e| format!("Failed to generate thumbnail: {}", e))?;
-
-    if output.status.success() && output_path.exists() {
-        Ok(ThumbnailResult {
-            id: request.id,
-            thumbnail_path: Some(output_path),
-            success: true,
-            error_message: None,
-        })
-    } else {
-        Ok(ThumbnailResult {
+        MediaType::Audio => Ok(ThumbnailResult {
             id: request.id,
             thumbnail_path: None,
-            success: false,
-            error_message: Some("FFmpeg failed".to_string()),
-        })
+            success: true,
+            error_message: None,
+        }),
     }
 }
 
