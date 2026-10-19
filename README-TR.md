@@ -26,6 +26,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 ![FFmpeg](https://img.shields.io/badge/FFmpeg-007808?style=for-the-badge&logo=ffmpeg&logoColor=white)
+![ImageMagick](https://img.shields.io/badge/ImageMagick-990000?style=for-the-badge)
 ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)
 
   <p>
@@ -52,7 +53,7 @@
 
 **Aether Media**, kullanıcıların medya dosyalarını (video, ses, görsel) toplu olarak hızlı, güvenli ve kolay bir şekilde dönüştürmelerini, sıkıştırmalarını, boyutlandırmalarını ve yeniden isimlendirmelerini sağlayan bir medya işleme aracıdır.
 
-**Rust** dilinin performansı ve **Tauri**'nin hafif yapısı üzerine inşa edilmiştir. Arka planda **FFmpeg**'in gücünü kullanarak, karmaşık medya işlemlerini modern bir arayüzle sunar. Dosyalarınız asla bir sunucuya yüklenmez; tüm işlemler tamamen yerel olarak kendi cihazınızda gerçekleşir.
+**Rust** dilinin performansı ve **Tauri**'nin hafif yapısı üzerine inşa edilmiştir. Video ve ses işlemleri için **FFmpeg**, görsel dönüştürme, boyutlandırma ve küçük resim oluşturma için **ImageMagick** kullanır; bu işlemleri modern bir arayüzde bir araya getirir. Dosyalarınız asla bir sunucuya yüklenmez; tüm işlemler tamamen yerel olarak kendi cihazınızda gerçekleşir.
 
 <img src="src/assets/md/aether_media_20260211133853_mg7u.jpg" width="100%" style="border-radius: 8px;" />
 
@@ -107,7 +108,8 @@ Proje, en güncel ve performans odaklı teknolojiler kullanılarak geliştirilmi
 - **Tauri**: Yerel sistem özelliklerine erişim sağlayan ultra hafif ve güvenli çerçeve.
 - **Rust**: Bellek güvenliği ve yüksek performans sunan sistem programlama dili.
 - **Tokio**: Asenkron çalışma zamanı ile bloklanmayan, akıcı işlem yönetimi.
-- **FFmpeg**: Endüstri standardı medya işleme kütüphanesi.
+- **FFmpeg**: Video ve ses dönüştürme, kodlama ve ses ayrıştırma.
+- **ImageMagick**: Görsel dönüştürme, boyutlandırma ve küçük resim oluşturma.
 
 ### Frontend (React & TypeScript)
 - **React 19**: En yeni React özellikleri ile hızlı kullanıcı arayüzü oluşturma.
@@ -125,7 +127,7 @@ Projeyi yerel ortamınızda çalıştırmak veya geliştirmek için aşağıdaki
 ### Gereksinimler
 - **Node.js** (v18+)
 - **Rust** (en son kararlı sürüm)
-- **FFmpeg**: Proje içinde `src-tauri/binaries` altına yerleştirilmelidir (3. adıma bakın).
+- **FFmpeg** ve **ImageMagick**: Her iki motor da proje içinde `src-tauri/binaries` altına yerleştirilmelidir (3. adıma bakın).
 
 ### Adım Adım Kurulum
 
@@ -140,9 +142,25 @@ Projeyi yerel ortamınızda çalıştırmak veya geliştirmek için aşağıdaki
     npm install
     ```
 
-3.  **FFmpeg Yapılandırması**
-    - Windows için GPL lisanslı bir `ffmpeg.exe` sürümü indirin (örneğin: [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)).
-    - Dosyayı `src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe` olarak kaydedin.
+3.  **Medya Motorlarını Yapılandırın (Windows x64)**
+    - `src-tauri/binaries` dizini yoksa oluşturun. Tauri yapılandırması, geliştirme ve derleme için her iki motoru da gerektirir.
+    - **FFmpeg**: [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds/releases) üzerinden Windows x64 için GPL lisanslı **statik** bir derleme indirin. Arşivdeki `ffmpeg.exe` dosyasını çıkarıp `ffmpeg-x86_64-pc-windows-msvc.exe` olarak yeniden adlandırın.
+    - **ImageMagick**: [Resmî indirme sayfasından](https://imagemagick.org/download/) Windows x64 için **taşınabilir statik** bir arşiv (`portable-Q16-x64.7z` gibi) indirin. Arşivi çıkarın, `magick.exe` dosyasını `magick-x86_64-pc-windows-msvc.exe` olarak yeniden adlandırın ve arşivdeki yardımcı yapılandırma dosyalarını yanında tutun.
+    - Çalıştırılabilir dosyaları aşağıdaki tam yollarla yerleştirin; hedef platform son eki Tauri tarafından gereklidir:
+
+      ```text
+      src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe
+      src-tauri/binaries/magick-x86_64-pc-windows-msvc.exe
+      ```
+
+    - Proje kök dizininde PowerShell ile iki motoru da doğrulayın:
+
+      ```powershell
+      .\src-tauri\binaries\ffmpeg-x86_64-pc-windows-msvc.exe -version
+      .\src-tauri\binaries\magick-x86_64-pc-windows-msvc.exe -version
+      ```
+
+    - Motor dosyaları Git tarafından yok sayılır; depoyu klonladıktan sonra ayrıca indirilmelidir.
 
 4.  **Uygulamayı Başlatın**
     ```bash
@@ -172,13 +190,16 @@ aether-media/
 │   ├── src/
 │   │   ├── modules/
 │   │   │   ├── ffmpeg.rs       # FFmpeg komut oluşturucu
+│   │   │   ├── imagemagick.rs  # ImageMagick komut oluşturucu
 │   │   │   ├── naming.rs       # Dosya isimlendirme mantığı
 │   │   │   └── thumbnail.rs    # Thumbnail oluşturma
 │   │   ├── commands.rs
 │   │   ├── error.rs
 │   │   ├── state.rs
 │   │   └── types.rs
-│   ├── binaries/               # FFmpeg binary (depoya dahil değildir)
+│   ├── binaries/               # FFmpeg ve ImageMagick (depoya dahil değildir)
+│   │   ├── ffmpeg-x86_64-pc-windows-msvc.exe
+│   │   └── magick-x86_64-pc-windows-msvc.exe
 │   └── tauri.conf.json
 └── public/
 ```

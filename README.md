@@ -26,6 +26,7 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 ![FFmpeg](https://img.shields.io/badge/FFmpeg-007808?style=for-the-badge&logo=ffmpeg&logoColor=white)
+![ImageMagick](https://img.shields.io/badge/ImageMagick-990000?style=for-the-badge)
 ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)
 
   <p>
@@ -52,7 +53,7 @@
 
 **Aether Media** is a media processing tool that allows users to batch convert, compress, resize, and rename media files (video, audio, image) quickly, securely, and easily.
 
-Built on the performance of **Rust** and the lightweight nature of **Tauri**. Using the power of **FFmpeg** in the background, it offers complex media operations with a modern interface. Your files are never uploaded to a server; all processes take place entirely locally on your own device.
+Built on the performance of **Rust** and the lightweight nature of **Tauri**. It uses **FFmpeg** for video and audio processing and **ImageMagick** for image conversion, resizing, and thumbnails, bringing these operations together in a modern interface. Your files are never uploaded to a server; all processes take place entirely locally on your own device.
 
 <img src="src/assets/md/aether_media_20260211133853_mg7u.jpg" width="100%" style="border-radius: 8px;" />
 
@@ -107,7 +108,8 @@ The project has been developed using the most up-to-date and performance-oriente
 - **Tauri**: Ultra-lightweight and secure framework providing access to native system features.
 - **Rust**: Systems programming language offering memory safety and high performance.
 - **Tokio**: Non-blocking, fluid process management with an asynchronous runtime.
-- **FFmpeg**: Industry-standard media processing library.
+- **FFmpeg**: Video and audio conversion, encoding, and audio extraction.
+- **ImageMagick**: Image conversion, resizing, and thumbnail generation.
 
 ### Frontend (React & TypeScript)
 - **React 19**: Rapid UI creation with the latest React features.
@@ -125,7 +127,7 @@ Follow the steps below to run or develop the project in your local environment.
 ### Requirements
 - **Node.js** (v18+)
 - **Rust** (latest stable version)
-- **FFmpeg**: Must be placed under `src-tauri/binaries` within the project (see step 3).
+- **FFmpeg** and **ImageMagick**: Both engines must be placed under `src-tauri/binaries` within the project (see step 3).
 
 ### Step-by-Step Installation
 
@@ -140,9 +142,25 @@ Follow the steps below to run or develop the project in your local environment.
     npm install
     ```
 
-3.  **FFmpeg Configuration**
-    - Download a GPL-licensed version of `ffmpeg.exe` for Windows (e.g., [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds)).
-    - Save the file as `src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe`.
+3.  **Configure the Media Engines (Windows x64)**
+    - Create the `src-tauri/binaries` directory if it does not exist. Both engines are required by the Tauri configuration for development and builds.
+    - **FFmpeg**: Download a Windows x64 GPL **static** build from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds/releases). Extract `ffmpeg.exe` and rename it to `ffmpeg-x86_64-pc-windows-msvc.exe`.
+    - **ImageMagick**: Download a Windows x64 **portable static** archive (such as `portable-Q16-x64.7z`) from the [official download page](https://imagemagick.org/download/). Extract it, rename `magick.exe` to `magick-x86_64-pc-windows-msvc.exe`, and keep the archive's supporting configuration files alongside it.
+    - Place the executables at these exact paths; the target suffix is required by Tauri:
+
+      ```text
+      src-tauri/binaries/ffmpeg-x86_64-pc-windows-msvc.exe
+      src-tauri/binaries/magick-x86_64-pc-windows-msvc.exe
+      ```
+
+    - Verify both engines from the project root in PowerShell:
+
+      ```powershell
+      .\src-tauri\binaries\ffmpeg-x86_64-pc-windows-msvc.exe -version
+      .\src-tauri\binaries\magick-x86_64-pc-windows-msvc.exe -version
+      ```
+
+    - Engine binaries are ignored by Git and must be downloaded separately after cloning.
 
 4.  **Start the Application**
     ```bash
@@ -172,13 +190,16 @@ aether-media/
 │   ├── src/
 │   │   ├── modules/
 │   │   │   ├── ffmpeg.rs       # FFmpeg command generator
+│   │   │   ├── imagemagick.rs  # ImageMagick command generator
 │   │   │   ├── naming.rs       # File naming logic
 │   │   │   └── thumbnail.rs    # Thumbnail generation
 │   │   ├── commands.rs
 │   │   ├── error.rs
 │   │   ├── state.rs
 │   │   └── types.rs
-│   ├── binaries/               # FFmpeg binary (not included in the repo)
+│   ├── binaries/               # FFmpeg and ImageMagick (not included in the repo)
+│   │   ├── ffmpeg-x86_64-pc-windows-msvc.exe
+│   │   └── magick-x86_64-pc-windows-msvc.exe
 │   └── tauri.conf.json
 └── public/
 ```
