@@ -1,33 +1,21 @@
-﻿import { motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Settings, RotateCcw, Play, Zap, Square } from "lucide-react";
-import { useToastStore } from "@/store/toastStore";
-import { useSettingsStore } from "@/store/settingsStore";
-import { useQueueStore } from "@/store/queueStore";
-import { useConversionQueue } from "@/hooks";
 import { SettingsPanel } from "@/components/settings";
-import { open } from "@tauri-apps/plugin-dialog";
 import { RetryModal } from "@/components/ui/RetryModal";
-import { cn, computeQueueStats } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { SIDEBAR_WIDTH, TOOLBAR_HEIGHT } from "@/lib/constants";
-import { useMemo, useState } from "react";
+import { useSidebar } from "./useSidebar";
 
 export function Sidebar() {
   const {
     settings,
     updateSettings,
     outputDirectory,
-    setOutputDirectory,
-    resetSettings,
-  } = useSettingsStore();
-  const { items } = useQueueStore();
-  const { addToast } = useToastStore();
-  const { startProcessing, stopProcessing, isProcessing } =
-    useConversionQueue();
-  const [isResetCooldown, setIsResetCooldown] = useState(false);
-  const [isProcessingCooldown, setIsProcessingCooldown] = useState(false);
-  const [showRetryModal, setShowRetryModal] = useState(false);
-
-  const {
+    isProcessing,
+    isResetCooldown,
+    isProcessingCooldown,
+    showRetryModal,
+    setShowRetryModal,
     hasVideo,
     hasImage,
     hasAudio,
@@ -35,100 +23,14 @@ export function Sidebar() {
     originalImageFormats,
     originalAudioFormats,
     errorCount,
-    hasAnyPendingOrCancelled,
     totalProcessable,
     isEmpty,
-  } = useMemo(() => {
-    const stats = computeQueueStats(items);
-    let video = false,
-      image = false,
-      audio = false;
-    let cancelled = 0;
-    const videoFormats = new Set<string>();
-    const imageFormats = new Set<string>();
-    const audioFormats = new Set<string>();
-
-    for (const item of items) {
-      const ext = item.inputPath.split(".").pop()?.toLowerCase();
-      if (item.mediaType === "video") {
-        video = true;
-        if (ext) videoFormats.add(ext);
-      } else if (item.mediaType === "image") {
-        image = true;
-        if (ext) imageFormats.add(ext === "jpeg" ? "jpg" : ext);
-      } else if (item.mediaType === "audio") {
-        audio = true;
-        if (ext) audioFormats.add(ext);
-      }
-      if (item.status === "cancelled") cancelled++;
-    }
-    return {
-      hasVideo: video,
-      hasImage: image,
-      hasAudio: audio,
-      originalVideoFormats: Array.from(videoFormats),
-      originalImageFormats: Array.from(imageFormats),
-      originalAudioFormats: Array.from(audioFormats),
-      pendingCount: stats.pending,
-      errorCount: stats.error,
-      hasAnyPendingOrCancelled: stats.pending > 0 || cancelled > 0,
-      totalProcessable: stats.pending + cancelled + stats.error,
-      isEmpty: items.length === 0,
-    };
-  }, [items]);
-
-  const triggerCooldown = () => {
-    setIsProcessingCooldown(true);
-    setTimeout(() => setIsProcessingCooldown(false), 1500);
-  };
-
-  const handleSelectOutputDir = async () => {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: "Select Output Directory",
-    });
-    if (selected) {
-      setOutputDirectory(selected as string);
-    }
-  };
-
-  const handleToggleProcessing = () => {
-    if (isProcessingCooldown) return;
-
-    if (isProcessing) {
-      stopProcessing();
-      triggerCooldown();
-    } else {
-      if (errorCount > 0) {
-        setShowRetryModal(true);
-      } else if (hasAnyPendingOrCancelled) {
-        startProcessing(false);
-        triggerCooldown();
-      }
-    }
-  };
-
-  const handleRetryConfirm = () => {
-    setShowRetryModal(false);
-    startProcessing(true);
-    triggerCooldown();
-  };
-
-  const handleRetrySkip = () => {
-    setShowRetryModal(false);
-    startProcessing(false);
-    triggerCooldown();
-  };
-
-  const handleReset = () => {
-    if (isResetCooldown) return;
-    resetSettings();
-    addToast("Global settings reset to defaults", "info");
-
-    setIsResetCooldown(true);
-    setTimeout(() => setIsResetCooldown(false), 2000);
-  };
+    handleSelectOutputDir,
+    handleToggleProcessing,
+    handleRetryConfirm,
+    handleRetrySkip,
+    handleReset,
+  } = useSidebar();
 
   return (
     <aside

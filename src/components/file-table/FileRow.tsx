@@ -1,71 +1,16 @@
-﻿import { memo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { memo } from "react";
+import { AnimatePresence } from "framer-motion";
 import * as ContextMenu from "@radix-ui/react-context-menu";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { invoke } from "@tauri-apps/api/core";
-import {
-  ChevronDown,
-  X,
-  Check,
-  AlertCircle,
-  Loader2,
-  FolderOpen,
-  Trash2,
-  Video,
-  Image,
-  Music,
-  ZoomIn,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { formatFileSize } from "@/lib/utils";
-import { hasEffectiveOverride } from "@/lib/overrideUtils";
-import { SettingsPanel } from "@/components/settings";
-import { useQueueStore } from "@/store/queueStore";
-import { useSettingsStore } from "@/store/settingsStore";
-import { useToastStore } from "@/store/toastStore";
-import type { QueueItem, ProcessStatus, MediaType } from "@/types";
-import { generateThumbnail } from "@/hooks/useThumbnail";
+import { ChevronDown, X, Check, ZoomIn } from "lucide-react";
+import { cn, formatFileSize } from "@/lib/utils";
 import { LazyThumbnail } from "@/components/ui/LazyThumbnail";
-import { ROW_HEIGHT, TAURI_COMMANDS } from "@/lib/constants";
-import { accordion, progressBar } from "@/lib/animations";
-
-interface FileRowProps {
-  item: QueueItem;
-  isSelected: boolean;
-  onRemove: (id: string) => void;
-  onCancel: (id: string) => void;
-  onPreview: (path: string) => void;
-}
-
-const statusConfig: Record<
-  ProcessStatus,
-  {
-    icon: typeof Check;
-    badgeClass: string;
-    label: string;
-  }
-> = {
-  pending: { icon: Loader2, badgeClass: "badge-pending", label: "Pending" },
-  processing: {
-    icon: Loader2,
-    badgeClass: "badge-processing",
-    label: "Processing",
-  },
-  completed: { icon: Check, badgeClass: "badge-completed", label: "Completed" },
-  error: { icon: AlertCircle, badgeClass: "badge-error", label: "Error" },
-  cancelled: { icon: X, badgeClass: "badge-cancelled", label: "Cancelled" },
-  conflict: {
-    icon: AlertCircle,
-    badgeClass: "badge-cancelled",
-    label: "Conflict",
-  },
-};
-
-const mediaIcons: Record<MediaType, typeof Video> = {
-  video: Video,
-  image: Image,
-  audio: Music,
-};
+import { ROW_HEIGHT } from "@/lib/constants";
+import type { FileRowProps } from "./row/types";
+import { mediaIcons } from "./row/presentation";
+import { useFileRow } from "./row/useFileRow";
+import { FileRowStatus } from "./row/FileRowStatus";
+import { FileRowDetails } from "./row/FileRowDetails";
+import { FileRowContextMenu } from "./row/FileRowContextMenu";
 
 export const FileRow = memo(function FileRow({
   item,
@@ -75,98 +20,21 @@ export const FileRow = memo(function FileRow({
   onPreview,
 }: FileRowProps) {
   const {
-    setThumbnail,
-    setThumbnailLoading,
-    setThumbnailError,
+    isExpanded,
+    isProcessing,
+    mergedSettings,
+    originalFormat,
+    hasOverride,
     updateItemOverride,
     toggleSelection,
-    isProcessing,
-    expandedId,
-    setExpandedId,
-  } = useQueueStore();
-  const { settings: globalSettings } = useSettingsStore();
-
-  const isExpanded = expandedId === item.id;
-
-  const handleThumbnailLoad = (
-    id: string,
-    inputPath: string,
-    mediaType: MediaType,
-  ) => {
-    setThumbnailLoading(id);
-    generateThumbnail(id, inputPath, mediaType)
-      .then((thumbnailPath) => {
-        if (thumbnailPath) {
-          setThumbnail(id, thumbnailPath);
-        } else {
-          setThumbnailError(id);
-        }
-      })
-      .catch(() => {
-        setThumbnailError(id);
-      });
-  };
-
-  const status = statusConfig[item.status];
-  const StatusIcon = status.icon;
+    handleThumbnailLoad,
+    handleClick,
+    handleToggleExpand,
+    handleRevealInExplorer,
+    handleDelete,
+    handleThumbnailClick,
+  } = useFileRow({ item, onRemove, onPreview });
   const MediaIcon = mediaIcons[item.mediaType];
-
-  const mergedSettings = {
-    ...globalSettings,
-    ...(item.overrideSettings || {}),
-  };
-
-  const originalFormat = item.inputPath.split(".").pop()?.toLowerCase();
-
-  const hasOverride = hasEffectiveOverride(
-    item.overrideSettings,
-    globalSettings,
-  );
-
-  const handleClick = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest("[data-prevent-select]")) return;
-    if (e.ctrlKey || e.metaKey) {
-      toggleSelection(item.id);
-    } else {
-      setExpandedId(isExpanded ? null : item.id);
-    }
-  };
-
-  const handleToggleExpand = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedId(isExpanded ? null : item.id);
-  };
-
-  const { addToast } = useToastStore();
-  const handleRevealInExplorer = async () => {
-    const path = item.outputPath || item.inputPath;
-    try {
-      const exists = await invoke<boolean>(TAURI_COMMANDS.CHECK_FILE_EXISTS, {
-        path,
-      });
-      if (!exists) {
-        addToast("File not found", "error");
-        return;
-      }
-      await revealItemInDir(path);
-    } catch (err) {
-      console.error("Failed to reveal item:", err);
-      addToast("Failed to open location.", "error");
-    }
-  };
-
-  const handleDelete = () => {
-    if (!isProcessing) {
-      onRemove(item.id);
-    }
-  };
-
-  const handleThumbnailClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (item.thumbnailPath) {
-      onPreview(item.thumbnailPath);
-    }
-  };
 
   return (
     <ContextMenu.Root>
@@ -247,36 +115,7 @@ export const FileRow = memo(function FileRow({
               </div>
             </div>
 
-            <div className={cn("badge", status.badgeClass)}>
-              <StatusIcon
-                className={cn(
-                  "w-3.5 h-3.5",
-                  item.status === "processing" && "animate-spin",
-                )}
-              />
-              {status.label}
-            </div>
-
-            {(item.status === "processing" ||
-              item.status === "cancelled" ||
-              item.status === "error") &&
-              item.progress > 0 && (
-                <div className="w-24 h-1.5 bg-slate rounded-full overflow-hidden">
-                  <motion.div
-                    className={cn(
-                      "h-full",
-                      item.status === "processing" &&
-                      "bg-linear-to-r from-neon-cyan to-electric-violet",
-                      item.status === "error" && "bg-danger-red",
-                      item.status === "cancelled" && "bg-warning-amber",
-                    )}
-                    variants={progressBar}
-                    initial="initial"
-                    animate="animate"
-                    custom={item.progress}
-                  />
-                </div>
-              )}
+            <FileRowStatus item={item} />
 
             <div className="flex items-center gap-1" data-prevent-select>
               {item.status === "processing" && (
@@ -315,73 +154,23 @@ export const FileRow = memo(function FileRow({
 
           <AnimatePresence>
             {isExpanded && (
-              <motion.div
-                variants={accordion}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="overflow-hidden"
-              >
-                <div className="px-4 pb-4 pt-1 ml-8 border-l-2 border-neon-cyan/30">
-                  <SettingsPanel
-                    settings={mergedSettings}
-                    onSettingsChange={(updates) => {
-                      updateItemOverride(item.id, updates);
-                    }}
-                    mediaType={item.mediaType}
-                    mode="local"
-                    originalVideoFormats={item.mediaType === "video" && originalFormat ? [originalFormat] : undefined}
-                    originalImageFormats={item.mediaType === "image" && originalFormat ? [originalFormat] : undefined}
-                    originalAudioFormats={item.mediaType === "audio" && originalFormat ? [originalFormat] : undefined}
-                  />
-                  {hasOverride && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        updateItemOverride(item.id, null);
-                      }}
-                      className="mt-3 px-3 py-1.5 text-xs text-ash hover:text-smoke border border-border-subtle rounded-lg hover:bg-slate/30 transition-colors"
-                    >
-                      Clear Override
-                    </button>
-                  )}
-                </div>
-                {item.errorMessage && (
-                  <div className="px-4 pb-3 ml-8">
-                    <div className="px-3 py-2 rounded-lg bg-danger-red/10 border border-danger-red/30 text-xs text-danger-red">
-                      {item.errorMessage}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
+              <FileRowDetails
+                item={item}
+                mergedSettings={mergedSettings}
+                originalFormat={originalFormat}
+                hasOverride={hasOverride}
+                updateItemOverride={updateItemOverride}
+              />
             )}
           </AnimatePresence>
         </div>
       </ContextMenu.Trigger>
 
-      <ContextMenu.Portal>
-        <ContextMenu.Content className="context-menu-content">
-          <ContextMenu.Item
-            onClick={handleRevealInExplorer}
-            className="context-menu-item"
-          >
-            <FolderOpen className="w-4 h-4 text-ash" />
-            <span>Open Location</span>
-          </ContextMenu.Item>
-          <ContextMenu.Separator className="h-px my-1.5 bg-border-subtle" />
-          <ContextMenu.Item
-            onClick={handleDelete}
-            disabled={isProcessing}
-            className={cn(
-              "context-menu-item-danger",
-              isProcessing && "opacity-50 cursor-not-allowed",
-            )}
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>Delete</span>
-          </ContextMenu.Item>
-        </ContextMenu.Content>
-      </ContextMenu.Portal>
+      <FileRowContextMenu
+        isProcessing={isProcessing}
+        handleRevealInExplorer={handleRevealInExplorer}
+        handleDelete={handleDelete}
+      />
     </ContextMenu.Root>
   );
 });
