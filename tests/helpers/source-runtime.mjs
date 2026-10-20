@@ -49,7 +49,9 @@ export function createRuntime({ baseline = false, persisted = {}, invoke, render
     "@tauri-apps/api/event": { listen: async () => () => {} },
     "@tauri-apps/api/window": { getCurrentWindow: () => ({}) },
     "@tauri-apps/plugin-dialog": { open: async () => null },
-    "@tauri-apps/plugin-opener": { revealItemInDir: async () => {} },
+    "@tauri-apps/plugin-opener": {
+      revealItemInDir: async (path) => { calls.push({ command: "revealItemInDir", args: { path } }); },
+    },
   };
 
   function load(file, overrideSource) {

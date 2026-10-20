@@ -75,7 +75,10 @@ export function useFileRow({
 
   const { addToast } = useToastStore();
   const handleRevealInExplorer = async () => {
-    const path = item.outputPath || item.inputPath;
+    const path =
+      item.status === "completed" && item.outputPath
+        ? item.outputPath
+        : item.inputPath;
     try {
       const exists = await invoke<boolean>(TAURI_COMMANDS.CHECK_FILE_EXISTS, {
         path,

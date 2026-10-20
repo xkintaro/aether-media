@@ -49,6 +49,8 @@ test("moved UI handlers retain their original syntax trees", () => {
     const before = declarations(sourceAt(oldFile, true));
     const after = new Map(files.flatMap((file) => [...declarations(fs.readFileSync(file, "utf8"))]));
     for (const [name, value] of before) if (/^(handle|triggerCooldown|toggleFilter|closePreview)/.test(name)) {
+      // Intentionally fixed after the refactor; covered by file-location.test.mjs.
+      if (oldFile === "src/components/file-table/FileRow.tsx" && name === "handleRevealInExplorer") continue;
       assert.deepEqual(after.get(name), value, `${oldFile}: ${name}`);
       count++;
     }
